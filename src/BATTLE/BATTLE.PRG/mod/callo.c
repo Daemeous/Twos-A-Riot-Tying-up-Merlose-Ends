@@ -22,6 +22,7 @@ extern u_char* D_800F5878[16];
 #define AI_ATTITUDES 0x1A4
 
 static vs_battle_charInitData _calloInitData;
+static vs_battle_weaponIntermediate _vkpWeapon;
 static void _makeEnemiesHostile(int calloSlot);
 static void _copyAshleyBaseStats(vs_battle_actor2* callo);
 static vs_main_inventoryWeapon* _loadoutWeapon(void);
@@ -29,6 +30,7 @@ static vs_main_inventoryShield* _loadoutShield(void);
 static void _applyLoadout(vs_battle_actor2* callo);
 static void _dropSharedItems(void);
 static void _giveStartingArmor(void);
+static void _giveStartingWeapon(void);
 
 #ifndef CALLO_MODEL
 #define CALLO_MODEL 8
@@ -62,8 +64,10 @@ enum {
     loadoutWeapon = 1,    /* slot in weapons[], blade id */
     loadoutShield = 3,    /* slot in shields[], base id */
     loadoutArmor = 5,     /* 6 x (slot in armor[], id), one per body part */
-    loadoutAccessory = 17 /* slot in armor[], id */
+    loadoutAccessory = 17, /* slot in armor[], id */
+    loadoutFlags = 19      /* LOADOUT_BOW_GIVEN; not cleared with the slots above */
 };
+#define LOADOUT_BOW_GIVEN 1 /* VKP Standard Issue has been put in the inventory */
 /* Weapon categories she has battle animations for: dagger, sword, axe/mace, crossbow */
 #define CALLO_WEAPON_CATEGORIES ((1 << 1) | (1 << 2) | (1 << 4) | (1 << 9))
 
@@ -104,6 +108,7 @@ void vs_mod_spawnCallo(void)
 
     _dropSharedItems();
     _giveStartingArmor();
+    _giveStartingWeapon();
     shield = _loadoutShield();
     weapon = _loadoutWeapon();
     if (weapon != NULL) {
@@ -112,7 +117,8 @@ void vs_mod_spawnCallo(void)
             shield ? shield->base.wepId : 0, shield ? shield->base.material : 0, &position,
             CALLO_SPAWN_PARAM);
     } else {
-        callo = func_800774FC(slot, CALLO_MODEL, CALLO_WEAPON_MODEL, CALLO_WEAPON_MATERIAL,
+        /* No weapon: bare-handed */
+        callo = func_800774FC(slot, CALLO_MODEL, 0, 0,
             shield ? shield->base.wepId : 0, shield ? shield->base.material : 0, &position,
             CALLO_SPAWN_PARAM);
     }
@@ -236,6 +242,60 @@ static void _giveStartingArmor(void)
     }
 }
 
+/* Her default weapon (VKP Standard Issue) as a real inventory weapon, equipped on her: a blade
+ * and a grip assembled into a weapon, as the game stores one. Done once (LOADOUT_BOW_GIVEN), so
+ * an empty weapon slot later doesn't keep making copies; she is then bare-handed. */
+static void _giveStartingWeapon(void)
+{
+    u_char* loadout = LOADOUT;
+    vs_main_inventoryWeapon* weapon;
+    int w;
+    int b;
+    int g;
+    int i;
+
+    if ((loadout[loadoutFlags] & LOADOUT_BOW_GIVEN) || (loadout[loadoutWeapon] != 0)) {
+        return;
+    }
+    for (w = 0; (w < 8) && (vs_main_inventory.weapons[w].blade != 0); ++w)
+        ;
+    for (b = 0; (b < 16) && (vs_main_inventory.blades[b].id != 0); ++b)
+        ;
+    for (g = 0; (g < 16) && (vs_main_inventory.grips[g].id != 0); ++g)
+        ;
+    if ((w >= 8) || (b >= 16) || (g >= 16)) {
+        return; /* no room: try again at the next spawn */
+    }
+
+    vs_battle_copyUiBladeStats(&vs_main_inventory.blades[b], &_vkpWeapon.blade);
+    vs_main_inventory.blades[b].index = b + 1;
+    vs_main_inventory.blades[b].assembledWeaponIndex = w + 1;
+    vs_battle_copyUiGripStats(&vs_main_inventory.grips[g], &_vkpWeapon.grip);
+    vs_main_inventory.grips[g].index = g + 1;
+    vs_main_inventory.grips[g].assembledWeaponIndex = w + 1;
+
+    weapon = &vs_main_inventory.weapons[w];
+    weapon->index = w + 1;
+    weapon->blade = b + 1;
+    weapon->grip = g + 1;
+    weapon->isEquipped = 0;
+    for (i = 0; i < 4; ++i) {
+        weapon->gems[i] = 0;
+    }
+    for (i = 0; i < 24; ++i) {
+        weapon->name[i] = _vkpWeapon.name[i];
+    }
+    for (i = 0; (i < 8) && (vs_main_inventoryIndices.weapons[i] != 0); ++i)
+        ;
+    if (i < 8) {
+        vs_main_inventoryIndices.weapons[i] = w + 1;
+    }
+
+    loadout[loadoutWeapon] = w + 1;
+    loadout[loadoutWeapon + 1] = vs_main_inventory.blades[b].id;
+    loadout[loadoutFlags] |= LOADOUT_BOW_GIVEN;
+}
+
 /* An item can't be on both characters; loadouts from before the MERLOSE menu could share one.
  * Ashley keeps it. Called while his "equipped" markers are in place. */
 static void _dropSharedItems(void)
@@ -264,7 +324,7 @@ static void _dropSharedItems(void)
     }
 }
 
-/* Equip her loadout on top of the template's gear (VKP Standard Issue, starting armour), the
+/* Equip her loadout on top of the template's gear (bare hands, starting armour), the
  * way INITBTL.PRG equips Ashley. Pieces that are unset or no longer valid keep the template's. */
 static void _applyLoadout(vs_battle_actor2* callo)
 {
@@ -371,44 +431,6 @@ static vs_battle_charInitData _calloInitData = {
     .unk30        = 4,
     .unk32        = 3,
     .unk28        = 0x6009D2BF, /* Sydney's value (unique to him); purpose unknown */
-    /* "VKP Standard Issue": a copy of Seventh Heaven (The Reckoning Room's chest) -
-     * Bronze Gastraph Bow + Simple Bolt, stats as stored in that chest (MAP018 loot). */
-    .weapon = {
-        .blade = {
-            .id           = 83,
-            .subId        = 83,
-            .wepId        = CALLO_WEAPON_MODEL,
-            .category     = 9, /* crossbow: her BT9 animation set */
-            .strength     = 11,
-            .intelligence = 1,
-            .agility      = -4,
-            .currentDp    = 6600,
-            .maxDp        = 6600,
-            .maxPp        = 150,
-            .damageType   = 3,
-            .costType     = 2,
-            .cost         = 2,
-            .material     = CALLO_WEAPON_MATERIAL,
-            .range        = {
-                .range       = 9,
-                .unk1        = 8,
-                .unk2        = 9,
-                .attackShape = 1,
-            },
-            .classes      = {-1, -1, -2, -1, -1, -5, 0, 0},
-            .affinities   = {8, 5, 5, -3, -3, 2, 2, 0},
-        },
-        .grip = {
-            .id           = 121, /* Simple Bolt */
-            .subId        = 26,
-            .category     = 4,
-            .strength     = 1,
-            .agility      = -1,
-            .types        = {0, 1, 0, 10},
-        },
-        .material = CALLO_WEAPON_MATERIAL,
-        .name     = "VKP|>6|Standard|>6|Issue\0",
-    },
     .accessory = {
         .equip = {
             .id           = 223,
@@ -552,6 +574,46 @@ static vs_battle_charInitData _calloInitData = {
             },
         },
     },
+};
+
+/* Her starting weapon, put in the inventory by _giveStartingWeapon. "VKP Standard Issue": a copy
+ * of Seventh Heaven (The Reckoning Room's chest) - Bronze Gastraph Bow + Simple Bolt, stats as
+ * stored in that chest (MAP018 loot). */
+static vs_battle_weaponIntermediate _vkpWeapon = {
+    .blade = {
+        .id           = 83,
+        .subId        = 83,
+        .wepId        = CALLO_WEAPON_MODEL,
+        .category     = 9, /* crossbow: her BT9 animation set */
+        .strength     = 11,
+        .intelligence = 1,
+        .agility      = -4,
+        .currentDp    = 6600,
+        .maxDp        = 6600,
+        .maxPp        = 150,
+        .damageType   = 3,
+        .costType     = 2,
+        .cost         = 2,
+        .material     = CALLO_WEAPON_MATERIAL,
+        .range        = {
+            .range       = 9,
+            .unk1        = 8,
+            .unk2        = 9,
+            .attackShape = 1,
+        },
+        .classes      = {-1, -1, -2, -1, -1, -5, 0, 0},
+        .affinities   = {8, 5, 5, -3, -3, 2, 2, 0},
+    },
+    .grip = {
+        .id           = 121, /* Simple Bolt */
+        .subId        = 26,
+        .category     = 4,
+        .strength     = 1,
+        .agility      = -1,
+        .types        = {0, 1, 0, 10},
+    },
+    .material = CALLO_WEAPON_MATERIAL,
+    .name     = "VKP|>6|Standard|>6|Issue\0",
 };
 
 /* The MERLOSE row of ITEMS > OPTIONS (see merlose.h) */
