@@ -8,10 +8,14 @@ xml    <disc xml> (<name> <lba> <size>)...   put files inside the padding before
 verify <disc image> (<lba> <file>)...        check they and NULL.DAT sit where expected
 menu3  <MENU3.PRG> <wrapper addresses...>  MENU3 calls -> mod wrappers (see MENU3_CALLS)
 menu0  <MENU0.PRG> <magicRows> <magicCost>  MAGIC menu calls -> mod wrappers (MENU0_CALLS)
+kit    <out dir> (<disc path> <original file> <patched file>)... (<lba> <file>)...
+       the patch kit tools/mod/patch_image.py applies to a finished disc image
 """
 
+import json
 import os
 import re
+import shutil
 import struct
 import sys
 
@@ -255,6 +259,45 @@ def verify(image_path, *files):
     print(f"verified: NULL.DAT still at {NULL_DAT_LBA} (byte {null_dat.hex()})")
 
 
+def kit(out_dir, *args):
+    """Write the patch kit: every change the mod makes to the game's files (as runs of original
+    and new bytes, by path on the disc) plus the files it adds (by sector). Applied to a
+    finished image by patch_image.py, after other mods (Zenith, the randomizer), which replace
+    whole files and would undo changes made before them."""
+    os.makedirs(out_dir, exist_ok=True)
+    files, added = {}, []
+    i = 0
+    while i < len(args):
+        if args[i].isdigit():
+            lba, path = int(args[i]), args[i + 1]
+            shutil.copy(path, os.path.join(out_dir, os.path.basename(path)))
+            added.append({"lba": lba, "file": os.path.basename(path)})
+            i += 2
+            continue
+        disc_path, original_path, patched_path = args[i:i + 3]
+        original = open(original_path, "rb").read()
+        patched = open(patched_path, "rb").read()
+        if len(patched) < len(original):
+            sys.exit(f"kit: {patched_path} is shorter than the original")
+        original += bytes(len(patched) - len(original))  # appended code goes over zeros
+        runs, j = [], 0
+        while j < len(patched):
+            if original[j] == patched[j]:
+                j += 1
+                continue
+            k = j
+            while k < len(patched) and (original[k] != patched[k] or patched[k:k + 4] != original[k:k + 4]):
+                k += 1
+            runs.append({"offset": j, "original": original[j:k].hex(), "new": patched[j:k].hex()})
+            j = k
+        files[disc_path] = runs
+        i += 3
+        print(f"kit: {disc_path}: {len(runs)} changes, {sum(len(r['new']) // 2 for r in runs)} bytes")
+    with open(os.path.join(out_dir, "patches.json"), "w") as f:
+        json.dump({"files": files, "added": added}, f, indent=1)
+    print(f"kit: {len(added)} added files; written to {out_dir}")
+
+
 def main():
     cmd, *args = sys.argv[1:]
     num = lambda s: int(s, 0)
@@ -274,6 +317,8 @@ def main():
         menu0(args[0], *map(num, args[1:3]))
     elif cmd == "menu3":
         menu3(args[0], *map(num, args[1:]))
+    elif cmd == "kit":
+        kit(args[0], *args[1:])
     elif cmd == "verify":
         verify(args[0], *args[1:])
     else:

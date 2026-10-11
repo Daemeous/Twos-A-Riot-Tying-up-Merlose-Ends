@@ -43,14 +43,12 @@ It runs on a standard 2 MB PlayStation; no 8 MB RAM option needed.
 
 - **Game:** Vagrant Story, USA (SLUS-01040). You need your own copy: nothing from the game is in
   this repository, and the build reads your disc image.
-- **Zenith:** supported and tested (Zenith 1.94). Apply it on top of the built mod with the
-  included tool (step 5): other PPF tools don't repair the disc checksums of sectors that both
-  Zenith and the mod change.
-- **Randomizer:** not tested. The mod places two files at fixed positions on the disc and
-  patches BATTLE.PRG, INITBTL.PRG, MENU0.PRG and MENU3.PRG. A randomizer that only edits data
-  inside existing files (items, enemies, chests) has a good chance of working if run on the
-  finished image; one that rebuilds the disc or changes those four files will break the mod.
-  Please report what you find.
+- **Zenith:** supported and tested (Zenith 1.94).
+- **Vagrant Story Randomizer** (ChaoticBrave, 0.9.2.0): supported, not yet playtested. The
+  randomizer replaces whole game files with its own copies, so the mod has to go on **after**
+  it (step 6). The files it ships have been checked against every change the mod makes.
+- **Order:** your disc → Zenith → randomizer → this mod. Zenith and the randomizer are both
+  optional.
 - **Emulator:** developed in DuckStation.
 
 ## Building
@@ -74,8 +72,9 @@ cd Twos-A-Riot-Tying-up-Merlose-Ends
 
 ### 3. Add your disc image
 
-Copy your Vagrant Story (USA) disc image, the single-track `.bin`, to
-`disks/SLUS-01040.bin`. If your copy is a different format, convert it to a BIN/CUE first.
+Copy your **unmodified** Vagrant Story (USA) disc image, the single-track `.bin`, to
+`disks/SLUS-01040.bin`. The build compiles against it. If your copy is a different format,
+convert it to a BIN/CUE first.
 
 ### 4. Build the game once
 
@@ -93,19 +92,31 @@ your image isn't the USA release or isn't a clean dump.
 bash tools/mod/build_mod.sh
 ```
 
-This writes `build/disks/SLUS-01040.bin` and `.cue`: the game with the mod.
+This makes the **patch kit** in `build/mod/kit`: the mod's two files and a list of every change
+it makes to the game. (It also writes a modded disc, `build/disks/SLUS-01040.bin`, without Zenith
+or the randomizer.)
 
-**With Zenith:** put Zenith's `.ppf` somewhere in the folder and apply it with the included
-tool, which also repairs the disc checksums of sectors both patches change:
+### 6. Patch your disc
 
-```sh
-python3 tools/mod/apply_ppf.py path/to/zenith.ppf build/disks/SLUS-01040.bin
-```
+1. Make a copy of your disc image to play, keeping the `.cue` beside it.
+2. Optionally apply Zenith to the copy, with any PPF tool.
+3. Optionally run the randomizer on the copy.
+4. Last, apply the mod:
 
-On WSL, if that fails with I/O errors on a Windows drive (`/mnt/c`, `/mnt/d`...), run the same
-command with Windows' own Python from a Windows terminal instead.
+   ```sh
+   python3 tools/mod/patch_image.py build/mod/kit path/to/your-copy.bin
+   ```
 
-Load `build/disks/SLUS-01040.cue` in your emulator. Rebuild with step 5 after pulling updates.
+The patcher checks every byte it's about to change. If another mod changed one of them, it stops
+without touching the disc and says where. Running it twice does nothing.
+
+On WSL, a disc image on a Windows drive (`/mnt/c`, `/mnt/d`...) can give I/O errors: run the
+same command with Windows' own Python from a Windows terminal instead. The patcher needs only
+Python 3, so you can also copy `tools/mod/patch_image.py`, `tools/mod/apply_ppf.py` and the
+`build/mod/kit` folder anywhere and run it there.
+
+**Updating the mod:** patch a fresh copy (step 6 again). The patcher refuses a disc patched by a
+different version of the mod.
 
 ## Status
 

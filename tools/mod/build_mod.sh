@@ -34,6 +34,8 @@ MENU_MAGIC=0x554E4D43  # "CMNU"
 mkdir -p "$OUT" "$MODDIR"
 rm -f "$PRG" "$INITBTL" "$MODDIR"/*.o
 make -j8 "$PRG" "$INITBTL" "$MODDIR/callo.c.o" "$MODDIR/menu.c.o"
+mkdir -p "$OUT/original"
+cp "$PRG" "$INITBTL" "$OUT/original/"  # unpatched, for the patch kit
 
 # Address definitions: BATTLE.PRG exports, unexported func_/D_XXXXXXXX by name, then the SLUS
 # and BATTLE.PRG symbol lists (e.g. vs_scratch, which the linker script places)
@@ -118,14 +120,25 @@ touch build/disks/SLUS-01040.xml
 # MENU3.PRG: calls redirected to the MERLOSE wrappers (merlose.h); same size
 rm -f build/data/MENU/MENU3.PRG
 make -j8 build/data/MENU/MENU3.PRG
+cp build/data/MENU/MENU3.PRG "$OUT/original/"
 python3 tools/mod/build_mod.py menu3 build/data/MENU/MENU3.PRG \
     "$(addr "$OUT/callo.elf" vs_mod_itemNavigation)" "$(addr "$OUT/callo.elf" vs_mod_equipMenu)" \
     "$(addr "$OUT/callo.elf" vs_mod_setMenuRows)" "$(addr "$OUT/callo.elf" vs_mod_loadObjectData)"
 # MENU0.PRG (MAGIC menu): her spell choice
 rm -f build/data/MENU/MENU0.PRG
 make -j8 build/data/MENU/MENU0.PRG
+cp build/data/MENU/MENU0.PRG "$OUT/original/"
 python3 tools/mod/build_mod.py menu0 build/data/MENU/MENU0.PRG     "$(addr "$OUT/callo.elf" vs_mod_magicRows)" "$(addr "$OUT/callo.elf" vs_mod_magicCost)"
 python3 tools/mod/build_mod.py sectors build/data data
 rm -f build/disks/SLUS-01040.bin build/disks/SLUS-01040.cue  # mkpsxiso would wait for an overwrite prompt
 make -j8 image
 python3 tools/mod/build_mod.py verify build/disks/SLUS-01040.bin     "$MOD_LBA" build/data/ENDING/CALLO.BIN "$MENU_LBA" build/data/ENDING/CALLOMNU.BIN
+
+# 5. The patch kit (build/mod/kit): the same changes, for tools/mod/patch_image.py to apply to a
+# finished disc image after other mods
+python3 tools/mod/build_mod.py kit "$OUT/kit" \
+    BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$PRG" \
+    BATTLE/INITBTL.PRG "$OUT/original/INITBTL.PRG" "$INITBTL" \
+    MENU/MENU3.PRG "$OUT/original/MENU3.PRG" build/data/MENU/MENU3.PRG \
+    MENU/MENU0.PRG "$OUT/original/MENU0.PRG" build/data/MENU/MENU0.PRG \
+    "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN"
