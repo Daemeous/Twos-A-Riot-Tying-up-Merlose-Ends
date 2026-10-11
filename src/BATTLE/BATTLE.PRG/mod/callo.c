@@ -128,6 +128,7 @@ void vs_mod_spawnCallo(void)
 
     _copyAshleyBaseStats(callo->unk3C);
     _applyLoadout(callo->unk3C);
+    callo->unk3C->isAnalyzed = 1; /* status screen shows her stats, not "???" */
 
     /* Fields func_800775C0 (enemy room spawn) copies from the room entry and Ashley's
      * spawn path leaves zeroed. Settings byte 0 matches the entry's index, so use an
