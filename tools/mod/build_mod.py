@@ -1,7 +1,8 @@
 """Helpers for tools/mod/build_mod.sh.
 
 pack   <code.bin> <out> <magic> <base> <limit> <spawn>
-battle  <BATTLE.PRG> <mod entry> <frame hook>   room-spawn return -> mod entry; upkeep call -> hook
+battle  <BATTLE.PRG> <mod entry> <frame hook> <wrappers...>   room-spawn return -> mod entry;
+        upkeep call -> hook; BATTLE_CALLS -> wrappers
 initbtl <INITBTL.PRG> <loader.bin> <loader base> <loader entry> <disc load size>
 xml    <disc xml> <lba> <size>      put ENDING/CALLO.BIN inside the padding before NULL.DAT
 verify <disc image> <lba> <file>    check CALLO.BIN and NULL.DAT sit where expected
@@ -18,6 +19,10 @@ ROOM_SPAWN_END = 0x80089888
 JR_RA = 0x03E00008
 UPKEEP_CALL = 0x8007A460       # vs_battle_exec: jal func_80088B6C (per-frame upkeep)
 UPKEEP = 0x80088B6C
+# Other BATTLE.PRG calls redirected to the mod: (original target, wrapper, expected calls)
+BATTLE_CALLS = [
+    (0x8007CF80, "vs_mod_countTeam", 2),  # team head count: room scripts' "enemies left"
+]
 INITBTL_VRAM = 0x800F9800
 DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile
 SECTOR = 2048
@@ -46,7 +51,7 @@ def pack(code_path, out_path, magic, base, limit, *functions):
           f"{limit - base - len(data)} bytes of RAM to spare")
 
 
-def battle(prg_path, entry, frame):
+def battle(prg_path, entry, frame, *wrappers):
     """Redirect func_80089114's only `jr $ra` to a tail call of the mod's entry point, and
     vs_battle_exec's per-frame upkeep call to the mod's frame hook (which calls the upkeep)."""
     prg = bytearray(open(prg_path, "rb").read())
@@ -59,6 +64,16 @@ def battle(prg_path, entry, frame):
     if found != 0x0C000000 | ((UPKEEP >> 2) & 0x03FFFFFF):
         sys.exit(f"BATTLE.PRG {UPKEEP_CALL:#x}: expected jal {UPKEEP:#x}, found {found:#010x}")
     struct.pack_into("<I", prg, UPKEEP_CALL - VRAM, 0x0C000000 | ((frame >> 2) & 0x03FFFFFF))
+    if len(wrappers) != len(BATTLE_CALLS):
+        sys.exit(f"battle: expected {len(BATTLE_CALLS)} wrapper addresses")
+    for (original, name, count), wrapper in zip(BATTLE_CALLS, wrappers):
+        jal = 0x0C000000 | ((original >> 2) & 0x03FFFFFF)
+        sites = [i for i in range(0, len(prg), 4) if struct.unpack_from("<I", prg, i)[0] == jal]
+        if len(sites) != count:
+            sys.exit(f"BATTLE.PRG: expected {count} jal {original:#x} for {name}, found {len(sites)}")
+        for i in sites:
+            struct.pack_into("<I", prg, i, 0x0C000000 | ((wrapper >> 2) & 0x03FFFFFF))
+            print(f"BATTLE.PRG: {VRAM + i:#x} jal {original:#x} -> {name} {wrapper:#x}")
     open(prg_path, "wb").write(prg)
     print(f"BATTLE.PRG: {returns[0]:#x} -> j {entry:#x}; {UPKEEP_CALL:#x} -> jal {frame:#x}")
 
@@ -176,7 +191,7 @@ def main():
     if cmd == "pack":
         pack(args[0], args[1], *map(num, args[2:]))
     elif cmd == "battle":
-        battle(args[0], num(args[1]), num(args[2]))
+        battle(args[0], *map(num, args[1:]))
     elif cmd == "initbtl":
         initbtl(args[0], args[1], *map(num, args[2:5]))
     elif cmd == "xml":
