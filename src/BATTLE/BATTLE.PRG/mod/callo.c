@@ -452,6 +452,12 @@ int _chosenSpellCount(void)
     return count;
 }
 
+/* Where spells go in her action table (limb * 4 + slot): not her arms (limbs 0 and 1, which
+ * hold her weapon attack). The AI cast buffs only from the other limbs: placed on an arm,
+ * Prostasia etc. were never used while attack spells were. Template Heal is limb 3 slot 0. */
+static const u_char _spellSlots[] = { 13, 14, 15, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22, 23 };
+#define SPELL_SLOTS (sizeof _spellSlots)
+
 /* (Re)fill her action table with the chosen spells Ashley knows. Levelled spells (Explosion
  * etc.) are listed by level 1; she casts the highest level he has. */
 void _learnSpells(vs_battle_actor2* callo)
@@ -480,11 +486,12 @@ void _learnSpells(vs_battle_actor2* callo)
                 ++id;
             }
         }
-        for (j = 0; (j < 6 * 4) && (entry[j].id != 0); ++j)
+        for (j = 0; (j < SPELL_SLOTS) && (entry[_spellSlots[j]].id != 0); ++j)
             ;
-        if (j >= 6 * 4) {
+        if (j >= SPELL_SLOTS) {
             return;
         }
+        j = _spellSlots[j];
         entry[j].id = id;
         entry[j].index = j & 3;
         entry[j].unk2_4 = 0;
