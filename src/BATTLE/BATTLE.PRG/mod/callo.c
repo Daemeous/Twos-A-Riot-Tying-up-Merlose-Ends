@@ -29,6 +29,7 @@ static vs_main_inventoryWeapon* _loadoutWeapon(void);
 static vs_main_inventoryShield* _loadoutShield(void);
 static void _applyLoadout(vs_battle_actor2* callo);
 static void _dropSharedItems(void);
+static void _learnSpells(vs_battle_actor2* callo);
 static void _giveStartingArmor(void);
 static void _giveStartingWeapon(void);
 
@@ -132,6 +133,7 @@ void vs_mod_spawnCallo(void)
 
     _copyAshleyBaseStats(callo->unk3C);
     _applyLoadout(callo->unk3C);
+    _learnSpells(callo->unk3C);
 
     /* Fields func_800775C0 (enemy room spawn) copies from the room entry and Ashley's
      * spawn path leaves zeroed. Settings byte 0 matches the entry's index, so use an
@@ -371,6 +373,49 @@ static void _applyLoadout(vs_battle_actor2* callo)
         if (armor->id == loadout[loadoutAccessory + 1]) {
             vs_battle_applyAccessory(&callo->accessory, armor);
         }
+    }
+}
+
+/* She knows the spells Ashley has learned. Her AI picks from the action table in her stats
+ * (6 body parts x 4 actions; the template uses three: an attack on each arm and Heal), so the
+ * learned spells go in its free entries. Until there's a menu to choose them, only attack and
+ * cure spells: the AI re-casts buffs constantly (as Sydney did with Prostasia). Ids are
+ * vs_main_actions[]: Ashley's spells are 54-97; the AI already casts ones from that range
+ * (Grissom: Clearance, Drain Mind). */
+#define MAX_LEARNED_SPELLS 8
+
+static const u_char _defaultSpells[] = {
+    78, /* Lightning Bolt */
+    81, /* Fireball */
+    84, /* Vulcan Lance */
+    86, /* Aqua Blast */
+    97, /* Solid Shock */
+    87, /* Restoration */
+    88, /* Antidote */
+    91, /* Clearance */
+};
+
+static void _learnSpells(vs_battle_actor2* callo)
+{
+    vs_battle_actor_unk8C0* entry = &callo->armor[0][0];
+    int learned = 0;
+    int i;
+    int j;
+
+    for (i = 0; (i < sizeof _defaultSpells) && (learned < MAX_LEARNED_SPELLS); ++i) {
+        if (!vs_main_actions[_defaultSpells[i]].unlocked) {
+            continue;
+        }
+        for (j = 0; (j < 6 * 4) && (entry[j].id != 0); ++j)
+            ;
+        if (j >= 6 * 4) {
+            return;
+        }
+        entry[j].id = _defaultSpells[i];
+        entry[j].index = 0;
+        entry[j].unk2_4 = 0;
+        entry[j].unk3 = 1;
+        ++learned;
     }
 }
 
