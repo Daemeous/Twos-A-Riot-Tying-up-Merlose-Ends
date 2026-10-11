@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -111,9 +112,9 @@ glabel func_800E511C
     lui     $s0, %hi(D_800F16BC)
     addiu   $s0, $s0, %lo(D_800F16BC)
     lw      $t0, 0x0($s0)
-    lui     $ra, (0x800E513C >> 16)
+    lui_addr $ra, func_800E511C + 0x20, 0x800E513C
     beqz    $t0, L800DB89C
-    ori     $ra, $ra, (0x800E513C & 0xFFFF)
+    ori_addr $ra, $ra, func_800E511C + 0x20, 0x800E513C
     jr      $t0
     addiu   $s0, $s0, 0x4
 endlabel func_800E511C
@@ -158,14 +159,14 @@ glabel func_800E5158
 endlabel func_800E5158
 
 glabel func_800E51C8
-    lui     $v1, (0x800F5878 >> 16)
+    lui_addr $v1, D_800F5878, 0x800F5878
     addiu   $sp, $sp, -0x20
     sw      $ra, 0x18($sp)
     sw      $s0, 0x10($sp)
     sw      $s1, 0x14($sp)
     addu    $s0, $a0, $zero
     addu    $s1, $a1, $zero
-    ori     $a2, $v1, (0x800F5878 & 0xFFFF)
+    ori_addr $a2, $v1, D_800F5878, 0x800F5878
     sll     $v0, $s0, 2
     addu    $a2, $a2, $v0
     lw      $a1, 0x0($a2)
@@ -201,11 +202,11 @@ glabel func_800E5240
     jal     func_800E5158
     addu    $a3, $zero, $zero
     beqz    $v0, .L800E522C
-    lui     $ra, (0x800E522C >> 16)
+    lui_addr $ra, .L800E522C, 0x800E522C
     lw      $a0, 0x18C($a2)
     addu    $s0, $a2, $zero
     beqz    $a0, .L800E522C
-    ori     $ra, $ra, (0x800E522C & 0xFFFF)
+    ori_addr $ra, $ra, .L800E522C, 0x800E522C
     sw      $zero, 0x18C($s0)
     j       vs_main_freeHeapR
     addiu   $a1, $zero, 0x7
@@ -388,12 +389,12 @@ glabel func_800E5308
     addu    $a2, $zero, $zero
 .L800E54F0:
     lw      $s0, 0x0($s0)
-    lui     $ra, (0x800DB898 >> 16)
+    lui_addr $ra, L800DB894 + 4, 0x800DB898
     bnez    $s0, .L800E5338
     lui     $a3, (0x1F800378 >> 16)
     lw      $sp, (0x1F800378 & 0xFFFF)($a3)
     bgez    $zero, func_800D9538
-    ori     $ra, $ra, (0x800DB898 & 0xFFFF)
+    ori_addr $ra, $ra, L800DB894 + 4, 0x800DB898
 .L800E550C:
     lbu     $t0, 0x19B($a0)
     addu    $t9, $ra, $zero

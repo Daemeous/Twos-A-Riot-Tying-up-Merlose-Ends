@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -38,15 +39,15 @@ glabel func_800E3BC8
     jr      $ra
     sw      $t9, 0x190($a0)
 alabel func_800E3C30
-    lui     $v1, (0x800E3EAC >> 16)
+    lui_addr $v1, func_800E3EAC, 0x800E3EAC
     bgez    $zero, .L800E3C54
-    ori     $v1, $v1, (0x800E3EAC & 0xFFFF)
-    lui     $v1, (0x800E3FF4 >> 16)
+    ori_addr $v1, $v1, func_800E3EAC, 0x800E3EAC
+    lui_addr $v1, func_800E3FF4, 0x800E3FF4
     bgez    $zero, .L800E3C54
-    ori     $v1, $v1, (0x800E3FF4 & 0xFFFF)
-    lui     $v1, (0x800E40F0 >> 16)
+    ori_addr $v1, $v1, func_800E3FF4, 0x800E3FF4
+    lui_addr $v1, func_800E3FF4 + 0xFC, 0x800E40F0
     bgez    $zero, .L800E3C54
-    ori     $v1, $v1, (0x800E40F0 & 0xFFFF)
+    ori_addr $v1, $v1, func_800E3FF4 + 0xFC, 0x800E40F0
 .L800E3C54:
     lw      $t0, 0x34($a0)
     lw      $t2, 0x168($a0)

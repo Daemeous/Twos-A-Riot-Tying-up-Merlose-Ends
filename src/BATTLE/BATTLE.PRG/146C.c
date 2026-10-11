@@ -753,6 +753,11 @@ extern D_800F1DD4_t* D_800F1DD4;
 extern short D_800F5160;
 extern short D_8005FFB0;
 
+#ifdef VS_SHIFTPAD
+// SHIFTCHECK experiment: move all BATTLE.PRG code and data after this point
+__asm__(".space " VS_SHIFTPAD);
+#endif
+
 // invoked when using Grimoires, Casting Spells or using Break Arts (but not Battle
 // Abilities or Items) invoked just before the action takes effect
 void func_80069C6C(int arg0)

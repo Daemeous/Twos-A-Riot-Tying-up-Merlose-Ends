@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -301,23 +302,23 @@ glabel func_800DC810
 .L800DC838:
     lui     $s0, %hi(vs_battle_actors)
     lw      $s0, %lo(vs_battle_actors)($s0)
-    lui     $t1, (0x800F5878 >> 16)
+    lui_addr $t1, D_800F5878, 0x800F5878
 .L800DC844:
     lw      $t0, 0x4($s0)
-    ori     $t1, $t1, (0x800F5878 & 0xFFFF)
+    ori_addr $t1, $t1, D_800F5878, 0x800F5878
     sll     $t0, $t0, 2
     addu    $t1, $t1, $t0
     lw      $a0, 0x0($t1)
     jalr    $s5
     addu    $a1, $s1, $zero
     lw      $s0, 0x0($s0)
-    lui     $t1, (0x800F5878 >> 16)
+    lui_addr $t1, D_800F5878, 0x800F5878
     bnez    $s0, .L800DC844
     nop
     addi    $s2, $s2, -0x1 /* handwritten instruction */
-    lui     $s5, (0x800DD344 >> 16)
+    lui_addr $s5, func_800DD344, 0x800DD344
     bgtz    $s2, .L800DC838
-    ori     $s5, $s5, (0x800DD344 & 0xFFFF)
+    ori_addr $s5, $s5, func_800DD344, 0x800DD344
     bgez    $zero, L800DB890
     nop
 endlabel func_800DC810

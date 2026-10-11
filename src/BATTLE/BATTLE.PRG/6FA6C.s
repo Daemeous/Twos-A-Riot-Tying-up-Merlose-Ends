@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -33,9 +34,9 @@ endlabel func_800D8280
 
 # hasm: cross-function control flow
 glabel func_800D82A8
-    lui     $a1, (0x800F5878 >> 16)
+    lui_addr $a1, D_800F5878, 0x800F5878
     beqz    $a0, .L800D82A4
-    ori     $a1, $a1, (0x800F5878 & 0xFFFF)
+    ori_addr $a1, $a1, D_800F5878, 0x800F5878
     sll     $a0, $a0, 2
     addu    $a0, $a0, $a1
     lw      $a0, 0x0($a0)

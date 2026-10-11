@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -474,9 +475,9 @@ glabel func_800E4B70
     lbu     $v0, 0x1A($a0)
     addiu   $sp, $sp, -0x20
     sw      $ra, 0x10($sp)
-    lui     $ra, (0x800E4BAC >> 16)
+    lui_addr $ra, func_800E4B70 + 0x3C, 0x800E4BAC
     bnez    $v0, func_800E1908
-    ori     $ra, $ra, (0x800E4BAC & 0xFFFF)
+    ori_addr $ra, $ra, func_800E4B70 + 0x3C, 0x800E4BAC
     lbu     $v0, 0x19B($a0)
     andi    $a1, $a1, 0xFFF
     beqz    $v0, .L800E4B9C

@@ -1,4 +1,5 @@
 .include "macro.inc"
+.include "src/include/addr.inc"
 
 .set noat
 .set noreorder
@@ -539,7 +540,7 @@ endlabel func_800E6EB0
 
 # hasm: custom register abi
 glabel func_800E6F1C
-    lui     $t0, (0x800F5878 >> 16)
+    lui_addr $t0, D_800F5878, 0x800F5878
     addiu   $sp, $sp, -0x20
     sw      $s0, 0x10($sp)
     lui     $s0, %hi(vs_battle_actors)
@@ -547,14 +548,14 @@ glabel func_800E6F1C
     sw      $ra, 0x18($sp)
 .L800E6F34:
     lw      $v0, 0x4($s0)
-    ori     $t0, $t0, (0x800F5878 & 0xFFFF)
+    ori_addr $t0, $t0, D_800F5878, 0x800F5878
     sll     $v0, $v0, 2
     addu    $t0, $t0, $v0
     lw      $t0, 0x0($t0)
     jal     func_800E7454
     addu    $a0, $s0, $zero
     lw      $s0, 0x0($s0)
-    lui     $t0, (0x800F5878 >> 16)
+    lui_addr $t0, D_800F5878, 0x800F5878
     bnez    $s0, .L800E6F34
     lui     $at, %hi(D_800F58D0)
     sw      $zero, %lo(D_800F58D0)($at)
@@ -726,9 +727,9 @@ glabel func_800E6F9C
     srl     $v0, $v0, 31
     sb      $v0, 0xA($s0)
 .L800E71D0:
-    lui     $ra, (0x800DB888 >> 16)
+    lui_addr $ra, L800DB888, 0x800DB888
     bgez    $zero, func_800DC638
-    ori     $ra, $ra, (0x800DB888 & 0xFFFF)
+    ori_addr $ra, $ra, L800DB888, 0x800DB888
 endlabel func_800E6F9C
 
 # hasm: trapping arithmetic
@@ -813,8 +814,8 @@ glabel func_800E72D0
     sw      $ra, 0x18($sp)
     lui     $s0, %hi(vs_battle_actors)
     lw      $s0, %lo(vs_battle_actors)($s0)
-    lui     $t1, (0x800F5878 >> 16)
-    ori     $t1, $t1, (0x800F5878 & 0xFFFF)
+    lui_addr $t1, D_800F5878, 0x800F5878
+    ori_addr $t1, $t1, D_800F5878, 0x800F5878
 .L800E72EC:
     lw      $t2, 0x4($s0)
     lui     $v0, (0xC80FFF30 >> 16)
@@ -846,16 +847,16 @@ glabel func_800E72D0
     addiu   $a1, $zero, 0x1
 .L800E735C:
     lw      $s0, 0x0($s0)
-    lui     $t1, (0x800F5878 >> 16)
+    lui_addr $t1, D_800F5878, 0x800F5878
     bnez    $s0, .L800E72EC
-    ori     $t1, $t1, (0x800F5878 & 0xFFFF)
+    ori_addr $t1, $t1, D_800F5878, 0x800F5878
     bgez    $zero, L800DB89C
 endlabel func_800E72D0
 
 # hasm: trapping arithmetic
 # hasm: saved registers outside frame
 glabel func_800E7370
-    lui     $a3, (0x800F5878 >> 16)
+    lui_addr $a3, D_800F5878, 0x800F5878
     addiu   $sp, $sp, -0xC
     sw      $s0, 0x0($sp)
     sw      $s1, 0x4($sp)
@@ -864,7 +865,7 @@ glabel func_800E7370
     lw      $s1, %lo(vs_battle_actors)($s1)
     sw      $ra, 0x8($sp)
     beqz    $s1, .L800E7440
-    ori     $a3, $a3, (0x800F5878 & 0xFFFF)
+    ori_addr $a3, $a3, D_800F5878, 0x800F5878
 .L800E7398:
     lw      $t0, 0x4($s1)
     addiu   $v0, $zero, 0x2
@@ -907,9 +908,9 @@ glabel func_800E7370
     addu    $a0, $a3, $zero
 alabel D_800E7430
     lw      $s1, 0x0($s1)
-    lui     $a3, (0x800F5878 >> 16)
+    lui_addr $a3, D_800F5878, 0x800F5878
     bnez    $s1, .L800E7398
-    ori     $a3, $a3, (0x800F5878 & 0xFFFF)
+    ori_addr $a3, $a3, D_800F5878, 0x800F5878
 .L800E7440:
     lw      $ra, 0x8($sp)
     lw      $s0, 0x0($sp)
@@ -946,11 +947,11 @@ glabel func_800E7454
 .L800E74A8:
     lui     $t0, %hi(vs_battle_actors)
     lw      $t0, %lo(vs_battle_actors)($t0)
-    lui     $t6, (0x800F5878 >> 16)
+    lui_addr $t6, D_800F5878, 0x800F5878
     beqz    $t0, .L800E74F0
 .L800E74B8:
     lw      $a3, 0x4($t0)
-    ori     $t1, $t6, (0x800F5878 & 0xFFFF)
+    ori_addr $t1, $t6, D_800F5878, 0x800F5878
     sll     $a3, $a3, 2
     addu    $t1, $t1, $a3
     lw      $t1, 0x0($t1)
@@ -962,7 +963,7 @@ glabel func_800E7454
     sb      $v0, 0x16($t1)
 .L800E74E4:
     lw      $t0, 0x0($t0)
-    lui     $t6, (0x800F5878 >> 16)
+    lui_addr $t6, D_800F5878, 0x800F5878
     bnez    $t0, .L800E74B8
 .L800E74F0:
     lui     $s5, %hi(D_800F58BC)
@@ -971,7 +972,7 @@ glabel func_800E7454
 .L800E74FC:
     addu    $t4, $s5, $v0
     lw      $t5, 0x28($t4)
-    ori     $t6, $t6, (0x800F5878 & 0xFFFF)
+    ori_addr $t6, $t6, D_800F5878, 0x800F5878
     bne     $t5, $s0, .L800E7514
     lbu     $a3, 0x1C($s0)
     sw      $zero, 0x28($t4)
@@ -1017,8 +1018,8 @@ glabel func_800E7454
     sw      $zero, 0x0($a0)
 .L800E75AC:
     lhu     $a0, 0x1A($s0)
-    lui     $ra, (0x800DB890 >> 16)
-    ori     $ra, $ra, (0x800DB890 & 0xFFFF)
+    lui_addr $ra, L800DB890, 0x800DB890
+    ori_addr $ra, $ra, L800DB890, 0x800DB890
     addiu   $a1, $zero, 0xAC
     beq     $a0, $a1, .L800E75D4
     addiu   $a1, $zero, 0xAD
@@ -1052,10 +1053,10 @@ endlabel func_800E75EC
 glabel func_800E7608
     lui     $a3, %hi(vs_battle_actors)
     lw      $a3, %lo(vs_battle_actors)($a3)
-    lui     $a1, (0x800F5878 >> 16)
+    lui_addr $a1, D_800F5878, 0x800F5878
 .L800E7614:
     lw      $v0, 0x4($a3)
-    ori     $a1, $a1, (0x800F5878 & 0xFFFF)
+    ori_addr $a1, $a1, D_800F5878, 0x800F5878
     sll     $v0, $v0, 2
     addu    $v0, $v0, $a1
     lw      $v0, 0x0($v0)
@@ -1067,9 +1068,9 @@ glabel func_800E7608
     sb      $v1, 0x16($v0)
 .L800E7640:
     lw      $a3, 0x0($a3)
-    lui     $a1, (0x800F5878 >> 16)
+    lui_addr $a1, D_800F5878, 0x800F5878
     bnez    $a3, .L800E7614
-    ori     $a1, $a1, (0x800F5878 & 0xFFFF)
+    ori_addr $a1, $a1, D_800F5878, 0x800F5878
     sll     $v0, $a0, 2
     addu    $a0, $v0, $a1
     j       func_800D82CC
