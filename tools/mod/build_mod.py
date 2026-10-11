@@ -87,6 +87,22 @@ def battle(prg_path, entry, frame, *wrappers):
     print(f"BATTLE.PRG: {returns[0]:#x} -> j {entry:#x}; {UPKEEP_CALL:#x} -> jal {frame:#x}")
 
 
+def maxstats(prg_path, get_rand, *functions):
+    """Permanent stat-up items (_increase*Rand: STR/INT/AGI/max HP/max MP) add
+    vs_main_getRand(4) + 1, i.e. 1-4. Replace that call in each with `li v0, 3` so they always
+    give the maximum, 4. (The delay slot only sets the call's argument; harmless.)"""
+    prg = bytearray(open(prg_path, "rb").read())
+    jal = 0x0C000000 | ((get_rand >> 2) & 0x03FFFFFF)
+    for start in functions:
+        sites = [a for a in range(start, start + 0x40, 4)
+                 if struct.unpack_from("<I", prg, a - VRAM)[0] == jal]
+        if len(sites) != 1:
+            sys.exit(f"maxstats: expected one vs_main_getRand call in {start:#x}, found {len(sites)}")
+        struct.pack_into("<I", prg, sites[0] - VRAM, 0x24020003)  # addiu v0, zero, 3
+        print(f"BATTLE.PRG: {sites[0]:#x} stat-up roll -> always 4")
+    open(prg_path, "wb").write(prg)
+
+
 def initbtl(path, loader_path, base, entry, load_size):
     """Append the loader to INITBTL.PRG and redirect its SYSTEM.DAT load call to it."""
     prg = bytearray(open(path, "rb").read())
@@ -234,6 +250,8 @@ def main():
         pack(args[0], args[1], *map(num, args[2:]))
     elif cmd == "battle":
         battle(args[0], *map(num, args[1:]))
+    elif cmd == "maxstats":
+        maxstats(args[0], *map(num, args[1:]))
     elif cmd == "initbtl":
         initbtl(args[0], args[1], *map(num, args[2:5]))
     elif cmd == "xml":

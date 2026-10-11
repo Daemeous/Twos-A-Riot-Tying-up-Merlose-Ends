@@ -7,6 +7,7 @@
 #       ~1.1 KB spare); INITBTL's SYSTEM.DAT load call is redirected to it.
 #   func_80089114's return (BATTLE.PRG) is patched into a tail call to the mod's entry point.
 #   vs_battle_exec's per-frame upkeep call (BATTLE.PRG) goes through the mod's frame hook.
+#   Permanent stat-up items always give their maximum (build_mod.py maxstats).
 #   Nothing goes in BATTLE.PRG's spare tail: Zenith keeps its variables there.
 #   MENU3.PRG / MENU0.PRG: calls redirected to the mod's menu wrappers (no size change).
 #   src/BATTLE/BATTLE.PRG/mod/menu.c  -> ENDING/CALLOMNU.BIN, the code only menus use; the mod
@@ -67,6 +68,9 @@ link() {  # $1 = object, $2 = base, $3 = entry symbol, $4 = output name, $5 = se
     mipsel-linux-gnu-objcopy -O binary -j .mod "$OUT/$4.elf" "$OUT/$4.bin"
 }
 addr() { mipsel-linux-gnu-nm "$1" | awk -v s="$2" '$3 == s {print "0x" $1}'; }
+sym() {  # address from the symbol lists
+    awk -v s="$1" '$1 == s && $2 == "=" {sub(/;.*/, "", $3); print $3; exit}'         config/SLUS_010.40/symbol_addrs.txt config/BATTLE/BATTLE.PRG/symbol_addrs.txt
+}
 
 # 1. The mod: 0x20-byte header with a function table (see build_mod.py pack), code after it
 link "$MODDIR/callo.c.o" "$((MOD_BASE + 0x20))" vs_mod_spawnCallo callo
@@ -98,6 +102,7 @@ LOADER=$(addr "$OUT/loader.elf" vs_mod_loadSystemDat)
 # 3. Patches: INITBTL's SYSTEM.DAT load -> loader; BATTLE.PRG room-spawn return -> mod entry
 INITBTL_SIZE=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/lbas.h)
 python3 tools/mod/build_mod.py initbtl "$INITBTL" "$OUT/loader.bin" "$LOADER_BASE" "$LOADER" "$INITBTL_SIZE"
+python3 tools/mod/build_mod.py maxstats "$PRG" "$(sym vs_main_getRand)"     "$(sym _increaseStrengthRand)" "$(sym _increaseIntelligenceRand)" "$(sym _increaseAgilityRand)"     "$(sym _increaseMaxHpRand)" "$(sym _increaseMaxMpRand)"
 python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"     "$(addr "$OUT/callo.elf" vs_mod_countTeam)" "$(addr "$OUT/callo.elf" vs_mod_hud)"
 
 # 4. Disc: CALLO.BIN and CALLOMNU.BIN inside the ENDING padding, then the image
