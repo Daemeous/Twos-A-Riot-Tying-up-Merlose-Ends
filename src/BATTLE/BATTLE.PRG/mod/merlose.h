@@ -334,7 +334,7 @@ int vs_mod_countTeam(int team)
  * ones (action target kind 1: Heal, Prostasia, Herakles, the elemental guards, items...), so
  * his weapon, Break Arts and attack spells can't pick her or her body parts. */
 extern u_char* D_800F19CC; /* the action being set up: action id (u16) at 8, actor at 12 */
-#define SUPPORT_ACTION 1    /* vs_action_t.unk2_4 */
+#define SUPPORT_ACTION 1    /* ACTION_TARGET_KIND */
 #define TARGETABLE 1        /* func_800A0BE0 status bit */
 
 u_int vs_mod_targetStatus(int actor)
@@ -342,7 +342,7 @@ u_int vs_mod_targetStatus(int actor)
     u_int status = func_800A0BE0(actor);
 
     if ((actor == _calloSlot) && (D_800F19CC[12] == 0) && (_calloActor() != NULL)
-        && (vs_main_actions[*(u_short*)(D_800F19CC + 8)].unk2_4 != SUPPORT_ACTION)) {
+        && (ACTION_TARGET_KIND(*(u_short*)(D_800F19CC + 8)) != SUPPORT_ACTION)) {
         status &= ~TARGETABLE;
     }
     return status;

@@ -440,7 +440,7 @@ static void _markSpells(int school, int* rowTypes)
     _initSpellChoice();
     for (i = 0; i < _schoolSizes[school]; ++i) {
         id = _schoolSpells[school][i];
-        if (vs_main_actions[id].unlocked) {
+        if (ACTION_UNLOCKED(id)) {
             if (_calloCasts(id)) {
                 rowTypes[row] |= ROW_FONT_COLOR;
             }

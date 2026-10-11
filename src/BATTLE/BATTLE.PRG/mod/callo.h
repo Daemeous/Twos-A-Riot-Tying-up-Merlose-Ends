@@ -22,6 +22,15 @@ enum {
 /* Weapon categories she has battle animations for: dagger, sword, axe/mace, crossbow */
 #define CALLO_WEAPON_CATEGORIES ((1 << 1) | (1 << 2) | (1 << 4) | (1 << 9))
 
+/* vs_main_actions[] as it is in memory. Zenith shortens the names to 20 characters, so each
+ * entry is 48 bytes instead of 52 and the table starts 4 bytes later (it fixes the game's own
+ * code up to match); the fields used here keep their offsets. Tell them apart by where action
+ * 2 is. Use these rather than vs_main_actions[]. */
+#define ZENITH_ACTIONS (*(u_char*)0x8004BA40 == 2)
+#define ACTION(id) ((u_char*)(ZENITH_ACTIONS ? 0x8004B9E0 + (id) * 48 : 0x8004B9DC + (id) * 52))
+#define ACTION_UNLOCKED(id) (ACTION(id)[13] >> 7)   /* .unlocked: learned */
+#define ACTION_TARGET_KIND(id) (ACTION(id)[2] >> 4) /* .unk2_4 */
+
 /* Spells she may cast (callo.c: _learnSpells; chosen in the MAGIC menu) */
 #define MAX_CALLO_SPELLS 8
 #define CALLO_HEAL 96

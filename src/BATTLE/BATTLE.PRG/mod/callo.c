@@ -472,11 +472,11 @@ void _learnSpells(vs_battle_actor2* callo)
     }
     for (index = 0; (index < SPELL_COUNT) && (learned < MAX_CALLO_SPELLS); ++index) {
         id = _spellId(index);
-        if (!_spellChosen(index) || (id == CALLO_HEAL) || !vs_main_actions[id].unlocked) {
+        if (!_spellChosen(index) || (id == CALLO_HEAL) || !ACTION_UNLOCKED(id)) {
             continue;
         }
         if ((index < 18) && (id >= 106) && (id <= 130)) { /* warlock, 4 levels each */
-            for (level = 0; (level < 3) && vs_main_actions[id + 1].unlocked; ++level) {
+            for (level = 0; (level < 3) && ACTION_UNLOCKED(id + 1); ++level) {
                 ++id;
             }
         }
