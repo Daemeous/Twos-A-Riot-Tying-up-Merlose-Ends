@@ -355,9 +355,46 @@ static void _respawnCallo(void)
     }
 }
 
+/* Leash: if she has been far from Ashley for a while (left behind by a cutscene, stuck on
+ * scenery), respawn her beside him. Distance in tiles, the larger of the x and z gaps. */
+#define LEASH_TILES 10
+#define LEASH_FRAMES 90 /* about 3 seconds */
+
+static u_char _leashFrames;
+
+static int _farFromAshley(void)
+{
+    D_800F4538_t* ashley = D_800F4538[0];
+    D_800F4538_t* callo = D_800F4538[_calloSlot];
+    int dx;
+    int dz;
+
+    if ((ashley == NULL) || (callo == NULL) || callo->unk0.skip) {
+        return 0;
+    }
+    dx = ashley->unk0.currentTileX - callo->unk0.currentTileX;
+    dz = ashley->unk0.currentTileZ - callo->unk0.currentTileZ;
+    if (dx < 0) {
+        dx = -dx;
+    }
+    if (dz < 0) {
+        dz = -dz;
+    }
+    return (dx > LEASH_TILES) || (dz > LEASH_TILES);
+}
+
 int vs_mod_frame(void)
 {
     int result = func_80088554();
+
+    if ((_calloActor() != NULL) && _farFromAshley()) {
+        if (++_leashFrames >= LEASH_FRAMES) {
+            _leashFrames = 0;
+            _respawnPending = 1;
+        }
+    } else {
+        _leashFrames = 0;
+    }
 
     if (_unskipPending && (D_800F4538[_calloSlot] != NULL)) {
         _unskipPending = 0;
