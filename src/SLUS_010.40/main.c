@@ -15,6 +15,7 @@
 #include <libspu.h>
 #include <libgpu.h>
 #include <rand.h>
+#include "src/BATTLE/BATTLE.PRG/mod/hooks.h"
 
 typedef struct {
     int unk0[2];
@@ -8004,8 +8005,9 @@ static void _loadBattlePrg(void)
     vs_main_CdFile cdFile;
     vs_main_CdQueueSlot* slot;
 
-    cdFile.lba = VS_BATTLE_PRG_LBA;
-    cdFile.size = VS_BATTLE_PRG_SIZE;
+    cdFile.lba = VS_CALLO_HOOK(VS_BATTLE_PRG_LBA, VS_BATTLE_PRG_LBA - VS_CALLO_BATTLE_PRG_SECTORS);
+    cdFile.size = VS_CALLO_HOOK(
+        VS_BATTLE_PRG_SIZE, VS_BATTLE_PRG_SIZE + VS_CALLO_BATTLE_PRG_SECTORS * 2048);
     slot = vs_main_allocateCdQueueSlot(&cdFile);
     vs_main_cdEnqueuePriority(slot, vs_overlay_slots[0]);
 

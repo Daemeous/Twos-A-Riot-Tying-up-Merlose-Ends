@@ -4,8 +4,11 @@ buildDir   := $(BUILD)/src/$(battle.prg)
 $(BUILD)/data/$(battle.prg): LDFLAGS += \
 	--defsym=vs_scratch=0x1F800000
 
+BATTLE_EXPORTS ?= config/BATTLE/BATTLE.PRG/exports.txt
+
+$(BUILD)/data/BATTLE/BATTLE.PRG.elf: $$(BATTLE_EXPORTS)
 $(BUILD)/data/BATTLE/BATTLE.PRG.elf: LDFLAGS += \
-	--retain-symbols-file=config/BATTLE/BATTLE.PRG/exports.txt
+	--retain-symbols-file=$(BATTLE_EXPORTS)
 
 $(buildDir)/%.c.o: CC1VER := 2.8.1-psx
 $(buildDir)/%.c.o: ASFLAGS += -no-pad-sections

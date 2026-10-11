@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <memory.h>
 #include <rand.h>
+#include "src/BATTLE/BATTLE.PRG/mod/hooks.h"
 
 #define CAMERA_INPUT_LOCKED()                                                           \
     ((D_800F196C == 3) || ((D_800F196C == 2) && ((_cameraMode == 4) || (_cameraMode == 11))))
@@ -4152,7 +4153,7 @@ void func_800719FC(int arg0 __attribute__((unused)))
     }
     count = 0;
     for (i = 0; i < 16; ++i) {
-        u_int status = func_800A0BE0(i);
+        u_int status = VS_CALLO_HOOK(func_800A0BE0, vs_mod_targetStatus)(i);
 
         if (vs_battle_actors[i]
             && (i != D_800F19CC->unk8.unk4.unk0.targetActor
@@ -4242,7 +4243,7 @@ void func_80071F68(int arg0)
     count = 0;
 
     for (i = 0; i < 16; ++i) {
-        u_int status = func_800A0BE0(i);
+        u_int status = VS_CALLO_HOOK(func_800A0BE0, vs_mod_targetStatus)(i);
 
         if (vs_battle_actors[i]
             && (i != D_800F19CC->unk8.unk4.unk0.targetActor
@@ -4392,7 +4393,7 @@ void func_80072734(int arg0)
         D_800F19CC->unk29B7 = spec->aoe_24 & 0xF8;
 
         for (i = 0; i < 10; ++i) {
-            u_int status = func_800A0BE0(i);
+            u_int status = VS_CALLO_HOOK(func_800A0BE0, vs_mod_targetStatus)(i);
 
             if (vs_battle_actors[i] && (status & 0x3000001) == 1
                 && (i != D_800F19CC->unk8.unk4.unk0.targetActor
@@ -7488,7 +7489,7 @@ void vs_battle_exec(void)
                             if ((vs_battle_screenTransitionStep != 1)
                                 && (vs_battle_screenTransitionStep != 2)
                                 && (vs_battle_screenTransitionStep != 4)) {
-                                switch (func_80088B6C()) {
+                                switch (VS_CALLO_HOOK(func_80088B6C, vs_mod_frame)()) {
                                 case 1:
                                     func_80073898();
                                     break;
@@ -7569,7 +7570,7 @@ void vs_battle_exec(void)
                     }
                     i = 0;
                     D_800F1868 = func_800CF060();
-                    func_800CA2DC();
+                    VS_CALLO_HOOK(func_800CA2DC, vs_mod_hud)();
                     func_800CB83C();
                     for (; i < vs_gametime_tickspeed / 2; ++i) {
                         vs_main_setVibrateParams();
@@ -12272,7 +12273,7 @@ int _increaseStrengthRand(vs_action_t* arg0 __attribute__((unused)),
     _hitEntity_t* arg1 __attribute__((unused)), _hitEntity_t* arg2,
     int arg3 __attribute__((unused)), int arg4 __attribute__((unused)))
 {
-    int amount = vs_main_getRand(4) + 1;
+    int amount = VS_CALLO_HOOK(vs_main_getRand(4), VS_CALLO_STAT_ROLL) + 1;
     arg2->strength += amount;
     arg2->strengthEffect = 2;
 }
@@ -12281,7 +12282,7 @@ int _increaseIntelligenceRand(vs_action_t* arg0 __attribute__((unused)),
     _hitEntity_t* arg1 __attribute__((unused)), _hitEntity_t* arg2,
     int arg3 __attribute__((unused)), int arg4 __attribute__((unused)))
 {
-    int amount = vs_main_getRand(4) + 1;
+    int amount = VS_CALLO_HOOK(vs_main_getRand(4), VS_CALLO_STAT_ROLL) + 1;
     arg2->intelligence += amount;
     arg2->intelligenceEffect = 2;
 }
@@ -12290,7 +12291,7 @@ int _increaseAgilityRand(vs_action_t* arg0 __attribute__((unused)),
     _hitEntity_t* arg1 __attribute__((unused)), _hitEntity_t* arg2,
     int arg3 __attribute__((unused)), int arg4 __attribute__((unused)))
 {
-    int amount = vs_main_getRand(4) + 1;
+    int amount = VS_CALLO_HOOK(vs_main_getRand(4), VS_CALLO_STAT_ROLL) + 1;
     arg2->agility += amount;
     arg2->agilityEffect = 2;
 }
@@ -12299,7 +12300,7 @@ int _increaseMaxHpRand(vs_action_t* arg0 __attribute__((unused)),
     _hitEntity_t* arg1 __attribute__((unused)), _hitEntity_t* arg2,
     int arg3 __attribute__((unused)), int arg4 __attribute__((unused)))
 {
-    int amount = vs_main_getRand(4) + 1;
+    int amount = VS_CALLO_HOOK(vs_main_getRand(4), VS_CALLO_STAT_ROLL) + 1;
     arg2->maxHp += amount;
     arg2->maxHpEffect = 2;
 }
@@ -12308,7 +12309,7 @@ int _increaseMaxMpRand(vs_action_t* arg0 __attribute__((unused)),
     _hitEntity_t* arg1 __attribute__((unused)), _hitEntity_t* arg2,
     int arg3 __attribute__((unused)), int arg4 __attribute__((unused)))
 {
-    int amount = vs_main_getRand(4) + 1;
+    int amount = VS_CALLO_HOOK(vs_main_getRand(4), VS_CALLO_STAT_ROLL) + 1;
     arg2->maxMp += amount;
     arg2->maxMpEffect = 2;
 }
@@ -14691,6 +14692,7 @@ void func_80089114(void)
 
     _zoneContext.unk1C = NULL;
     _zoneContext.unk14 = 0;
+    VS_CALLO_CALL(vs_mod_spawnCallo());
 }
 
 void func_80089888(void)

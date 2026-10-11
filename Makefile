@@ -46,7 +46,7 @@ BINTARGETS := $(BINARIES:%=$(BUILD)/data/%)
 TARGETS    += $(BINTARGETS)
 
 include $(wildcard $(BINARIES:%=config/%/Makefile))
-include $(patsubst %,tools/make/%.mk,shell assemble compile docker kaitai link shift permuter python vsstring)
+include $(patsubst %,tools/make/%.mk,shell assemble compile docker kaitai link shift callo permuter python vsstring)
 
 ifndef PERMUTER
 ifndef __BASH_MAKE_COMPLETION__

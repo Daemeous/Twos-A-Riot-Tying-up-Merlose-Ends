@@ -15,6 +15,7 @@
 #include <memory.h>
 #include <stddef.h>
 #include <abs.h>
+#include "src/BATTLE/BATTLE.PRG/mod/hooks.h"
 
 typedef struct {
     u_char mode;
@@ -2682,7 +2683,7 @@ int vs_battle_script_specialOp(u_char* arg0, short arg1)
         }
         break;
     case 4:
-        vs_battle_setStateFlag(0xB1, func_8007CF80(4));
+        vs_battle_setStateFlag(0xB1, VS_CALLO_HOOK(func_8007CF80, vs_mod_countTeam)(4));
         break;
     case 5:
         func_800BAF6C(arg0[2]);
@@ -4446,7 +4447,7 @@ short func_800BEC58(int arg0, int arg1, u_char* arg2, int arg3)
                 p += 3;
                 break;
             case 5:
-                left = flagValue = func_8007CF80(p[1]);
+                left = flagValue = VS_CALLO_HOOK(func_8007CF80, vs_mod_countTeam)(p[1]);
                 flagId = vs_battle_getShort(p + 2);
                 if (flagId != 0) {
                     vs_battle_setStateFlag(flagId, flagValue);
