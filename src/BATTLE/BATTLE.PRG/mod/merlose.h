@@ -685,3 +685,82 @@ int vs_mod_countTeam(int team)
     }
     return count;
 }
+
+/* --- Her HP/MP/RISK display --------------------------------------------------------------------
+ * A smaller copy of Ashley's (func_800CA2DC, top left): half-width bars under his, drawn the
+ * same way (vs_battle_renderStatBar), sliding out with his (D_800EB9B0). vs_battle_exec's
+ * call to his display is redirected here by tools/mod/build_mod.py battle. */
+#include "gpu.h"
+
+void func_800CA2DC(void);
+extern int D_800EB9B0;
+extern int D_800EBC04[]; /* bar colours: HP, MP, RISK */
+
+#define MINI_BAR_WIDTH 32
+#define MINI_HUD_X 10
+#define MINI_HUD_Y 32
+#define MINI_HUD_ROW 6
+
+static void _renderMiniBar(int colorIndex, int current, int max, int xy)
+{
+    u_long* before = (u_long*)((u_char*)vs_scratch.unk4 - 0xC);
+    u_long* prim = vs_scratch.unk0;
+    u_int rgb1 = D_800EBC04[colorIndex];
+    int w;
+    int s;
+    int rgb0;
+
+    if (max <= 0) {
+        return;
+    }
+    if (current < 0) {
+        current = 0;
+    }
+    if (current > max) {
+        current = max;
+    }
+    w = (current * MINI_BAR_WIDTH + max - 1) / max;
+    s = w * (0x40 / MINI_BAR_WIDTH); /* colour blend on the full bar's 0-64 scale */
+    rgb0 = (((s * 0xFF) + ((rgb1 & 0xFF) * (0x40 - s))) >> 6)
+         | ((((s * 0xF0) + (((rgb1 >> 8) & 0xFF) * (0x40 - s))) >> 6) << 8)
+         | ((((s * 0x9E) + ((rgb1 >> 16) * (0x40 - s))) >> 6) << 16);
+
+    prim[0] = (*before & 0xFFFFFF) | (w == 0 ? 0x03000000 : 0x0D000000);
+    prim[1] = vs_getRGB0(primTile, 0x00, 0x28, 0x40);
+    prim[2] = xy;
+    prim[3] = vs_getXY(MINI_BAR_WIDTH + 2, 4);
+    prim[4] = vs_getTpage(0, 0, clut4Bit, semiTransparencyHalf, ditheringOn);
+    prim[5] = rgb0 | (primPolyG4 << 24);
+    xy += vs_getXY(1, 1);
+    prim[6] = xy;
+    prim[7] = rgb1;
+    prim[8] = xy + w;
+    xy += vs_getXY(0, 2);
+    prim[9] = rgb0;
+    prim[10] = xy;
+    prim[11] = rgb1;
+    prim[12] = xy + w;
+    prim[13] = vs_getTpage(0, 0, 0, 0, 0);
+    *before = ((u_long)prim << 8) >> 8;
+    vs_scratch.unk0 = prim + 14;
+}
+
+void vs_mod_hud(void)
+{
+    vs_battle_actor* callo;
+    vs_battle_actor2* stats;
+    int xy;
+
+    func_800CA2DC();
+    callo = _calloActor();
+    if ((callo == NULL) || (D_800F4538[_calloSlot] == NULL) || D_800F4538[_calloSlot]->unk0.skip) {
+        return;
+    }
+    stats = callo->unk3C;
+    xy = vs_getXY(MINI_HUD_X, MINI_HUD_Y) - D_800EB9B0;
+    _renderMiniBar(0, stats->currentHP, stats->maxHP, xy);
+    _renderMiniBar(1, stats->currentMP, stats->maxMP, xy + vs_getXY(0, MINI_HUD_ROW));
+    if (stats->risk != 0) {
+        _renderMiniBar(2, stats->risk, 100, xy + vs_getXY(0, MINI_HUD_ROW * 2));
+    }
+}

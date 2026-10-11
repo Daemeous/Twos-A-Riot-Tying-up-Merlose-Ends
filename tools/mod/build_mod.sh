@@ -28,7 +28,8 @@ mkdir -p "$OUT" "$MODDIR"
 rm -f "$PRG" "$INITBTL" "$MODDIR"/*.o
 make -j8 "$PRG" "$INITBTL" "$MODDIR/callo.c.o"
 
-# Address definitions: BATTLE.PRG exports, unexported func_/D_XXXXXXXX by name, SLUS symbols
+# Address definitions: BATTLE.PRG exports, unexported func_/D_XXXXXXXX by name, then the SLUS
+# and BATTLE.PRG symbol lists (e.g. vs_scratch, which the linker script places)
 symbols() {  # $1 = object
     mipsel-linux-gnu-nm build/data/BATTLE/BATTLE.PRG.elf | awk '{print $3 " = 0x" $1 ";"}'
     mipsel-linux-gnu-nm -u "$1" | awk '{print $2}' | while read -r s; do
@@ -37,8 +38,8 @@ symbols() {  # $1 = object
         elif [[ $s =~ ^D_[0-9A-F]{8}$ ]]; then
             echo "$s = 0x${s#D_};"
         else
-            awk -v s="$s" '$1 == s && $2 == "=" {sub(/;.*/, "", $3); print s " = " $3 ";"}' \
-                config/SLUS_010.40/symbol_addrs.txt
+            awk -v s="$s" '$1 == s && $2 == "=" {sub(/;.*/, "", $3); print s " = " $3 ";"; exit}' \
+                config/SLUS_010.40/symbol_addrs.txt config/BATTLE/BATTLE.PRG/symbol_addrs.txt
         fi
     done
 }
@@ -76,7 +77,7 @@ LOADER=$(addr "$OUT/loader.elf" vs_mod_loadSystemDat)
 # 3. Patches: INITBTL's SYSTEM.DAT load -> loader; BATTLE.PRG room-spawn return -> mod entry
 INITBTL_SIZE=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/lbas.h)
 python3 tools/mod/build_mod.py initbtl "$INITBTL" "$OUT/loader.bin" "$LOADER_BASE" "$LOADER" "$INITBTL_SIZE"
-python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"     "$(addr "$OUT/callo.elf" vs_mod_countTeam)"
+python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"     "$(addr "$OUT/callo.elf" vs_mod_countTeam)" "$(addr "$OUT/callo.elf" vs_mod_hud)"
 
 # 4. Disc: CALLO.BIN inside the ENDING padding, then the image
 mkdir -p build/data/ENDING build/disks

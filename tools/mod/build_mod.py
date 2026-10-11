@@ -22,6 +22,7 @@ UPKEEP = 0x80088B6C
 # Other BATTLE.PRG calls redirected to the mod: (original target, wrapper, expected calls)
 BATTLE_CALLS = [
     (0x8007CF80, "vs_mod_countTeam", 2),  # team head count: room scripts' "enemies left"
+    (0x800CA2DC, "vs_mod_hud", 1),        # HP/MP/RISK display (vs_battle_exec)
 ]
 INITBTL_VRAM = 0x800F9800
 DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile
