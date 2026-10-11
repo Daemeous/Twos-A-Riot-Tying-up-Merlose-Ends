@@ -44,7 +44,7 @@ It runs on a standard 2 MB PlayStation; no 8 MB RAM option needed.
 - **Game:** Vagrant Story, USA (SLUS-01040). You need your own copy: nothing from the game is in
   this repository, and the build reads your disc image.
 - **Zenith:** supported and tested (Zenith 1.94).
-- **Vagrant Story Randomizer** (ChaoticBrave, 0.9.2.0): supported, not yet playtested. The
+- **Vagrant Story Randomizer** (ChaoticBrave, 0.9.2.0): supported and playtested. The
   randomizer replaces whole game files with its own copies, so the mod has to go on **after**
   it (step 6). The files it ships have been checked against every change the mod makes.
 - **Order:** your disc → Zenith → randomizer → this mod. Zenith and the randomizer are both
@@ -133,7 +133,10 @@ different version of the mod.
 - her starting bow and armour
 - respawning after MERLOSE
 - Zenith compatibility
+- randomizer compatibility (with the patcher, step 6)
 - Ashley's attacks no longer targeting her
+- her stats copying Ashley's, with STR and INT swapped
+- choosing her spells in the MAGIC menu, and her casting them, buffs included
 
 **Built, still being tested:**
 - the equip animation
@@ -142,7 +145,6 @@ different version of the mod.
 - room clearing
 - every zone outside the Wine Cellar
 - gear growth
-- spell choice and her buff spells
 - the HP/MP/RISK bars, which are a first version without labels or numbers
 - stat-up items
 
