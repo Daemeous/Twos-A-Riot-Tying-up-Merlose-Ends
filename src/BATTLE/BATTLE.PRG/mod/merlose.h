@@ -355,9 +355,22 @@ static void _respawnCallo(void)
     }
 }
 
+/* Enemies that appear mid-room (summoned, script spawns) get their attitude table after she
+ * spawned: repeat _makeEnemiesHostile every so often so they treat her like Ashley too. */
+#define HOSTILITY_INTERVAL 15 /* frames */
+
+static u_char _hostilityTimer;
+
 int vs_mod_frame(void)
 {
     int result = func_80088554();
+
+    if (++_hostilityTimer >= HOSTILITY_INTERVAL) {
+        _hostilityTimer = 0;
+        if (_calloActor() != NULL) {
+            _makeEnemiesHostile(_calloSlot);
+        }
+    }
 
     if (_unskipPending && (D_800F4538[_calloSlot] != NULL)) {
         _unskipPending = 0;
