@@ -302,16 +302,207 @@ int vs_mod_equipMenu(int initialize)
     return row;
 }
 
-/* The weapon and shield screens' model loads (Ashley's in game, then the preview from him),
- * called each frame until they return 0. In MERLOSE her models are left alone: attaching a new
- * weapon model while she still has the old weapon type's animations crashed the renderer. She
- * gets the right models and animations when she respawns after the menu (see below). */
+/* --- Equipping in MERLOSE ----------------------------------------------------------------------
+ * The weapon and shield screens call MENU3's _loadObjectData(category, wepId, material) each
+ * frame until it returns 0. For Ashley it re-arms him in game (weapon type's animation set,
+ * weapon/shield model), sheathes and draws in the preview, and rebuilds the preview from him.
+ * In MERLOSE the same is done to Callo, as MENU3 does it but for her slot. The preview (a copy
+ * of a non-Ashley character) shares her animation set rather than copying it, so her old set is
+ * only replaced once the preview has finished sheathing, and the preview lets go of it first.
+ * (category 0 = shield; wepId < 96 is a weapon model, >= 96 a shield model.) */
+
+void func_800F9A78(int); /* MAINMENU: build the preview from a character (no draw) */
+void func_800F9CB0(void); /* MAINMENU: place the preview */
+int func_800AD494(void*, int, u_short**);
+void func_800AD008(void*, void*);
+void func_800AFA28(void*, void*, int);
+
+#define PREVIEW 1
+#define UNARMED_CATEGORY 10
+#define ANIM_IDLE 1         /* sheathed */
+#define ANIM_IDLE_DRAWN 101 /* weapon drawn */
+
+#define ANIM_WAIT_FRAMES 120 /* if she lacks a sheathe/draw animation, carry on anyway */
+
+static u_char _equipStep;
+static u_char _equipWait;
+static u_char _newAnimSet; /* category whose animation set to load after sheathing, 0 none */
+
+/* MENU3's func_80109320: weapon types held in both hands */
+static int _twoHanded(int category)
+{
+    if (category < 3) {
+        return 0;
+    }
+    if (category == 8) {
+        return 1;
+    }
+    return category & 1;
+}
+
+/* MAINMENU's func_800FA2CC for her: restart her animation with the current set */
+static void _resetCalloAnimation(void)
+{
+    D_800F4538_t* model = D_800F4538[_calloSlot];
+    vs_battle_wepModels_t* wep;
+    u_short* frames;
+    int i;
+    int anim;
+
+    for (i = 0; i < 2; ++i) {
+        wep = vs_battle_wepModels[_calloSlot * 2 + i];
+        if (wep != NULL) {
+            if (model->unk0.weaponDrawn) {
+                wep->unk11 = 0x40;
+                wep->unk8_4 = 1;
+            } else {
+                wep->unk11 = 0;
+            }
+        }
+    }
+    func_8009E634(model);
+    anim = model->unk0.weaponDrawn ? ANIM_IDLE_DRAWN : ANIM_IDLE;
+    model->animationId = anim;
+    model->unk5AC_20 = 0;
+    model->unk187C = func_800AD494(model, anim, &frames);
+    model->unk6E3 = D_800F49DC;
+    model->unk5BC = *frames;
+    func_800AD008(model, &model->unkC54);
+    func_800AFA28(model, &model->unkC54, 1);
+    vs_main_memcpy(&model->unk704, &model->unkC54, sizeof model->unk704);
+    model->unkC54.unk540 = 0;
+    model->unk6E0 = 0;
+    model->unk5CD = 0;
+    model->unk5CC = 0;
+}
+
+static void _loadCalloAnimSet(int category)
+{
+    vs_battle_objectData objData;
+
+    func_8009CC20(_calloSlot, 0);
+    objData.dataType = 7;
+    objData.index = _calloSlot;
+    objData.modelId = category;
+    objData.actorId = 0;
+    vs_battle_populateDataSlot(&objData);
+}
+
+/* Remove the weapon (0) or shield (1) model from her, and queue the new one if any */
+static void _queueCalloModel(vs_battle_actor* callo, int wepId, int material)
+{
+    vs_battle_objectData objData;
+    int isShield = wepId >= 96;
+
+    if (wepId == 0) {
+        return;
+    }
+    func_8009AA84(_calloSlot * 2 + isShield);
+    objData.dataType = 3;
+    objData.index = _calloSlot * 2 + isShield;
+    objData.modelId = wepId;
+    objData.unk4 = callo->unk48[isShield];
+    objData.actorId = _calloSlot;
+    objData.unk11 = isShield ? 0xF1 : 0xF0;
+    objData.material = material;
+    vs_battle_populateDataSlot(&objData);
+}
+
+static int _equipCallo(vs_battle_actor* callo, int category, int wepId, int material)
+{
+    D_800F4538_t* model = D_800F4538[_calloSlot];
+    D_800F4538_t* preview = D_800F4538[PREVIEW];
+    int i;
+
+    switch (_equipStep) {
+    case 0:
+        _newAnimSet = 0;
+        if (category == 0) {
+            func_8009AA84(_calloSlot * 2 + 1);
+            if (wepId && _twoHanded(model->unk5B1)) {
+                func_8009AA84(_calloSlot * 2);
+                _newAnimSet = UNARMED_CATEGORY;
+            }
+        } else {
+            if (category != model->unk5B1) {
+                _newAnimSet = category;
+            }
+            func_8009AA84(_calloSlot * 2);
+            if ((vs_battle_wepModels[_calloSlot * 2 + 1] != NULL) && _twoHanded(category)) {
+                func_8009AA84(_calloSlot * 2 + 1);
+            }
+        }
+        _queueCalloModel(callo, wepId, material);
+        func_8009D934(PREVIEW, 0, 1); /* sheathe */
+        _equipWait = 0;
+        _equipStep = 1;
+        break;
+
+    case 1:
+        if (vs_battle_processObjectDataQueue() != 0) {
+            break;
+        }
+        if ((preview->animationId != ANIM_IDLE) && (++_equipWait < ANIM_WAIT_FRAMES)) {
+            break;
+        }
+        if (_newAnimSet != 0) {
+            /* The preview shares her set, but func_8009CC20 only looks for other users from
+             * slot 2 up, so it would free it under the preview (then freed again when the
+             * preview is rebuilt). The preview is idle (sheathed set) until it's rebuilt. */
+            preview->unk5D8 = NULL;
+            _loadCalloAnimSet(_newAnimSet);
+        }
+        _equipStep = 2;
+        break;
+
+    case 2:
+        if (vs_battle_processObjectDataQueue() != 0) {
+            break;
+        }
+        _resetCalloAnimation();
+        func_800F9E0C();
+        func_800F9A78(_calloSlot);
+        func_800F9CB0();
+        preview = D_800F4538[PREVIEW];
+        preview->unk0.weaponDrawn = 0;
+        func_800A0204(PREVIEW, ANIM_IDLE, 0, 0);
+        func_800AFA28(preview, &preview->unkC54, 1);
+        vs_main_memcpy(&preview->unk704, &preview->unkC54, sizeof preview->unk704);
+        for (i = 0; i < 2; ++i) {
+            if (D_800F4590[i] != NULL) {
+                D_800F4590[i]->unk11 = 0;
+            }
+        }
+        func_8009D934(PREVIEW, 1, 1); /* draw */
+        _equipWait = 0;
+        _equipStep = 3;
+        break;
+
+    case 3:
+        if ((preview->animationId == ANIM_IDLE_DRAWN) || (++_equipWait >= ANIM_WAIT_FRAMES)) {
+            /* Only her crossbow draw shows the new models by itself; make sure they're shown */
+            func_8009D934(PREVIEW, 1, 2);
+            _equipStep = 0;
+            return 0;
+        }
+        break;
+    }
+    return 1;
+}
+
 int vs_mod_loadObjectData(int category, int wepId, int material)
 {
+    vs_battle_actor* callo;
+
     if (_menuMode != 2) {
         return ((int (*)(int, int, int))MENU3_LOAD_OBJECT_DATA)(category, wepId, material);
     }
-    return 0;
+    callo = _calloActor();
+    if (callo == NULL) {
+        _equipStep = 0;
+        return 0;
+    }
+    return _equipCallo(callo, category, wepId, material);
 }
 
 /* --- Respawn after MERLOSE ----------------------------------------------------------------------
