@@ -488,6 +488,8 @@ static void _toggleSpell(int id)
     callo = _calloActor();
     if (callo != NULL) {
         _learnSpells(callo->unk3C);
+        /* Her AI reads its actions when it starts: respawn her once the menu has closed */
+        _respawnPending = 1;
     }
 }
 
