@@ -755,8 +755,8 @@ static vs_battle_weaponIntermediate _vkpWeapon = {
 
 /* The MERLOSE row of ITEMS > OPTIONS (see merlose.h) */
 static char _merloseRow[] = "MERLOSE\0";
-static char _merloseRowDesc[] = "Equip|>6|Callo|>6|Merlose\0";
-static char _merloseRowAbsent[] = "Callo|>6|is|>6|not|>6|here\0";
+static char _merloseRowDesc[] = "Equip|>6|Merlose\0";
+static char _merloseRowAbsent[] = "Merlose|>6|is|>6|not|>6|here\0";
 #pragma vsstring(end)
 
 #include "merlose.h"

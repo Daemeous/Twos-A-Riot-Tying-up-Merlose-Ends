@@ -410,19 +410,26 @@ int vs_mod_countTeam(int team)
  * character whose status says "targetable" and whose team the action allows - and nearly all
  * actions allow every team, which is why he could hit her. Each list's status call is
  * redirected here (hooks.h / build_mod.py battle): for Ashley's actions she's only a target of support
- * ones (action target kind 1: Heal, Prostasia, Herakles, the elemental guards, items...), so
- * his weapon, Break Arts and attack spells can't pick her or her body parts. */
+ * ones (action target kind 1: Heal, Prostasia, Herakles, the elemental guards, items...) and of
+ * area spells (kinds 6 and 12: Explosion, Thunderburst... Lv.1-4, and the grimoires' Tornado,
+ * Fire Storm, Apocalypse...), which catch her like anyone else inside them. His weapon, Break
+ * Arts, single-target attack spells and debuffs can't pick her or her body parts. */
 extern u_char* D_800F19CC; /* the action being set up: action id (u16) at 8, actor at 12 */
 #define SUPPORT_ACTION 1    /* ACTION_TARGET_KIND */
+#define AREA_SPELL 6        /* levelled area spells */
+#define AREA_GRIMOIRE 12    /* the grimoires' area spells */
 #define TARGETABLE 1        /* func_800A0BE0 status bit */
 
 u_int vs_mod_targetStatus(int actor)
 {
     u_int status = func_800A0BE0(actor);
+    int kind;
 
-    if ((actor == _calloSlot) && (D_800F19CC[12] == 0) && (_calloActor() != NULL)
-        && (ACTION_TARGET_KIND(*(u_short*)(D_800F19CC + 8)) != SUPPORT_ACTION)) {
-        status &= ~TARGETABLE;
+    if ((actor == _calloSlot) && (D_800F19CC[12] == 0) && (_calloActor() != NULL)) {
+        kind = ACTION_TARGET_KIND(*(u_short*)(D_800F19CC + 8));
+        if ((kind != SUPPORT_ACTION) && (kind != AREA_SPELL) && (kind != AREA_GRIMOIRE)) {
+            status &= ~TARGETABLE;
+        }
     }
     return status;
 }
