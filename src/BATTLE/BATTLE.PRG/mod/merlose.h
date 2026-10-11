@@ -75,6 +75,49 @@ static void _markLoadoutArmor(int offset, int limb)
     }
 }
 
+/* Gear grows in battle (classes, affinities, DP/PP) on her in-battle copy of it; Ashley's is
+ * copied back to the inventory when the menu opens (vs_mainMenu_initInventory). Do the same
+ * for her, but only where the inventory slot still holds that item per her loadout: her items
+ * can be dropped or disassembled while she wears them, and the slot reused. */
+static void _saveCalloGear(vs_battle_actor* callo)
+{
+    u_char* loadout = LOADOUT;
+    vs_battle_actor2* stats = callo->unk3C;
+    vs_main_inventoryWeapon* weapon;
+    int slot;
+    int i;
+
+    if (loadout[loadoutVersion] != LOADOUT_VERSION) {
+        return;
+    }
+    slot = stats->weapon.index;
+    if ((slot != 0) && (slot <= 8) && (loadout[loadoutWeapon] == slot)
+        && (stats->weapon.blade.id == loadout[loadoutWeapon + 1])) {
+        weapon = &vs_main_inventory.weapons[slot - 1];
+        if ((weapon->blade != 0)
+            && (vs_main_inventory.blades[weapon->blade - 1].id == stats->weapon.blade.id)) {
+            vs_battle_copyUiWeaponStats(weapon, &stats->weapon);
+        }
+    }
+    slot = stats->shield.index;
+    if ((slot != 0) && (slot <= 8) && (loadout[loadoutShield] == slot)
+        && (vs_main_inventory.shields[slot - 1].base.id == stats->shield.base.id)) {
+        vs_battle_copyUiShieldStats(&vs_main_inventory.shields[slot - 1], &stats->shield);
+    }
+    for (i = 0; i < 6; ++i) {
+        slot = stats->limbs[i].armor.index;
+        if ((slot != 0) && (slot <= 16) && (loadout[loadoutArmor + i * 2] == slot)
+            && (vs_main_inventory.armor[slot - 1].id == stats->limbs[i].armor.armor.id)) {
+            vs_battle_copyUiArmorStats(&vs_main_inventory.armor[slot - 1], &stats->limbs[i].armor);
+        }
+    }
+    slot = stats->accessory.index;
+    if ((slot != 0) && (slot <= 16) && (loadout[loadoutAccessory] == slot)
+        && (vs_main_inventory.armor[slot - 1].id == stats->accessory.accessory.id)) {
+        vs_battle_copyUiAccessoryStats(&vs_main_inventory.armor[slot - 1], &stats->accessory);
+    }
+}
+
 static void _equipEnter(vs_battle_actor* callo)
 {
     u_char* loadout = LOADOUT;
@@ -109,6 +152,7 @@ static void _equipEnter(vs_battle_actor* callo)
     }
 
     _menuMode = 2;
+    _saveCalloGear(callo);
 
     /* Swap Ashley's markers out, hiding his items and weapons she has no animations for */
     for (i = 0; i < 8; ++i) {
@@ -535,6 +579,7 @@ static void _respawnCallo(void)
     if (hp == 0) {
         return; /* defeated: leave her be */
     }
+    _saveCalloGear(callo);
     func_8007D340(_calloSlot);
     vs_mod_spawnCallo();
     callo = _calloActor();
@@ -580,9 +625,24 @@ static int _farFromAshley(void)
     return (dx > LEASH_TILES) || (dz > LEASH_TILES);
 }
 
+/* Her gear's growth is copied to the inventory every so often: a room change removes her
+ * without notice. */
+#define GEAR_SAVE_INTERVAL 60 /* frames */
+
+static u_char _gearSaveTimer;
+
 int vs_mod_frame(void)
 {
     int result = func_80088554();
+    vs_battle_actor* callo;
+
+    if (++_gearSaveTimer >= GEAR_SAVE_INTERVAL) {
+        _gearSaveTimer = 0;
+        callo = _calloActor();
+        if (callo != NULL) {
+            _saveCalloGear(callo);
+        }
+    }
 
     if (++_hostilityTimer >= HOSTILITY_INTERVAL) {
         _hostilityTimer = 0;
