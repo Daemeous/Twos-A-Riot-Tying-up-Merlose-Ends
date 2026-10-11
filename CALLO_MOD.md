@@ -68,8 +68,8 @@ sudo apt-get install -y --no-install-recommends \
 ### 2. Get the code
 
 ```sh
-git clone -b callo-preview https://github.com/Daemeous/rood-reverse.git
-cd rood-reverse
+git clone -b callo-preview https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends.git
+cd Twos-A-Riot-Tying-up-Merlose-Ends
 ```
 
 ### 3. Add your disc image
