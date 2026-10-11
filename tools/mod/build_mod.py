@@ -1,6 +1,6 @@
 """Helpers for tools/mod/build_mod.sh.
 
-pack   <code.bin> <out> <magic> <base> <limit> <spawn>
+pack   <code.bin> <out> <magic> <base> <limit> <checked end> <entry points...>
 battle  <BATTLE.PRG> <mod entry> <frame hook> <wrappers...>   room-spawn return -> mod entry;
         upkeep call -> hook; BATTLE_CALLS -> wrappers
 initbtl <INITBTL.PRG> <loader.bin> <loader base> <loader entry> <disc load size>
@@ -42,17 +42,22 @@ NULL_DAT_LBA = 319000
 HEADER_SIZE = 0x20
 
 
-def pack(code_path, out_path, magic, base, limit, *functions):
-    """Header (0x20 bytes): magic, size, a function table of up to 5 entry points (rest zero),
-    then a checksum (sum of the code's words; the menu module is checked with it). The whole
-    file, padded to sectors, is what gets loaded, so that must fit below `limit`."""
+def pack(code_path, out_path, magic, base, limit, checked_end, *functions):
+    """Header (0x20 bytes): magic, checked size, a function table of up to 5 entry points (rest
+    zero), then a checksum of the words from the end of the header up to `checked_end` (code
+    and constants: the variables after them change at run time). The menu module is checked
+    with it. The whole file, padded to sectors, is what gets loaded, so it must fit below
+    `limit`."""
     code = open(code_path, "rb").read()
     code += bytes(-len(code) % 4)
     if len(functions) > 5:
         sys.exit("pack: at most 5 entry points")
+    checked = (checked_end - base - HEADER_SIZE) & ~3
+    if not 0 < checked <= len(code):
+        sys.exit(f"pack: checked end {checked_end:#x} outside the code")
     entries = list(functions) + [0] * (5 - len(functions))
-    checksum = sum(struct.unpack(f"<{len(code) // 4}I", code)) & 0xFFFFFFFF
-    header = struct.pack("<8I", magic, HEADER_SIZE + len(code), *entries, checksum)
+    checksum = sum(struct.unpack(f"<{checked // 4}I", code[:checked])) & 0xFFFFFFFF
+    header = struct.pack("<8I", magic, HEADER_SIZE + checked, *entries, checksum)
     data = header + code
     data += bytes(-len(data) % SECTOR)
     name = os.path.basename(out_path)
