@@ -30,6 +30,7 @@ static vs_main_inventoryShield* _loadoutShield(void);
 static void _applyLoadout(vs_battle_actor2* callo);
 static void _dropSharedItems(void);
 static void _learnSpells(vs_battle_actor2* callo);
+static void _setSpellChosen(int index, int chosen);
 static void _giveStartingArmor(void);
 static void _giveStartingWeapon(void);
 
@@ -66,9 +67,11 @@ enum {
     loadoutShield = 3,    /* slot in shields[], base id */
     loadoutArmor = 5,     /* 6 x (slot in armor[], id), one per body part */
     loadoutAccessory = 17, /* slot in armor[], id */
-    loadoutFlags = 19      /* LOADOUT_BOW_GIVEN; not cleared with the slots above */
+    loadoutFlags = 19,     /* LOADOUT_*; not cleared with the slots above */
+    loadoutSpells = 20     /* bit per spell in the MAGIC lists (_spellIndex): she may cast it */
 };
 #define LOADOUT_BOW_GIVEN 1 /* VKP Standard Issue has been put in the inventory */
+#define LOADOUT_SPELLS_CHOSEN 2 /* loadoutSpells set (else _defaultSpells) */
 /* Weapon categories she has battle animations for: dagger, sword, axe/mace, crossbow */
 #define CALLO_WEAPON_CATEGORIES ((1 << 1) | (1 << 2) | (1 << 4) | (1 << 9))
 
@@ -376,44 +379,148 @@ static void _applyLoadout(vs_battle_actor2* callo)
     }
 }
 
-/* She knows the spells Ashley has learned. Her AI picks from the action table in her stats
- * (6 body parts x 4 actions; the template uses three: an attack on each arm and Heal), so the
- * learned spells go in its free entries. Until there's a menu to choose them, only attack and
- * cure spells: the AI re-casts buffs constantly (as Sydney did with Prostasia). Ids are
- * vs_main_actions[]; Ashley's are the ones in vs_battle_warlockSpellIds/shaman/sorcerer/
- * enchanter (several spells exist twice: e.g. Fireball 81 and 99, he learns 99). The AI
+/* She knows the spells Ashley has learned, and the player picks which of them she may cast in
+ * the MAGIC menu (Square toggles, see merlose.h); the choice is saved in the loadout. Her AI
+ * picks from the action table in her stats (6 body parts x 4 actions, entry.index = its slot;
+ * the template uses three: an attack on each arm and Heal, which she always keeps), so the
+ * chosen spells go in its free entries. Ids are vs_main_actions[]; Ashley's are the ones in the
+ * four school lists (several spells exist twice: e.g. Fireball 81 and 99, he learns 99). The AI
  * already casts ids from those lists (Grissom: Clearance, Drain Mind). */
-#define MAX_LEARNED_SPELLS 8
+#define MAX_CALLO_SPELLS 8
+#define CALLO_HEAL 96
+#define SPELL_COUNT (18 + 6 + 18 + 8)
+#define FIRST_SPELL_ID 54 /* lowest id in the school lists */
+#define LAST_SPELL_ID 140
 
-static const u_char _defaultSpells[] = {
-    98, /* Lightning Bolt (Ashley's ids: vs_battle_warlockSpellIds etc., not 78-86) */
-    99, /* Fireball */
-    100, /* Vulcan Lance */
-    101, /* Aqua Blast */
-    97, /* Solid Shock */
-    87, /* Restoration */
-    88, /* Antidote */
-    91, /* Clearance */
-};
+extern u_char vs_battle_warlockSpellIds[];
+extern u_char vs_battle_shamanSpellIds[];
+extern u_char vs_battle_sorcererSpellIds[];
+extern u_char vs_battle_enchanterSpellIds[];
 
+/* The schools in MAGIC menu order, with how many spells each menu lists */
+static u_char* const _schoolSpells[4] = { vs_battle_warlockSpellIds, vs_battle_shamanSpellIds,
+    vs_battle_sorcererSpellIds, vs_battle_enchanterSpellIds };
+static const u_char _schoolSizes[4] = { 18, 6, 18, 8 };
+
+/* Until the player chooses: attack and cure spells (the AI re-casts buffs constantly, as
+ * Sydney did with Prostasia) */
+static const u_char _defaultSpells[] = { 98, 99, 100, 101, 97, 87, 88, 91 };
+
+/* Position of a spell in the four lists, or -1 */
+static int _spellIndex(int id)
+{
+    int school;
+    int i;
+    int index = 0;
+
+    for (school = 0; school < 4; ++school) {
+        for (i = 0; i < _schoolSizes[school]; ++i, ++index) {
+            if (_schoolSpells[school][i] == id) {
+                return index;
+            }
+        }
+    }
+    return -1;
+}
+
+static int _spellId(int index)
+{
+    int school;
+
+    for (school = 0; school < 4; ++school) {
+        if (index < _schoolSizes[school]) {
+            return _schoolSpells[school][index];
+        }
+        index -= _schoolSizes[school];
+    }
+    return 0;
+}
+
+static void _initSpellChoice(void)
+{
+    u_char* loadout = LOADOUT;
+    int i;
+
+    if (loadout[loadoutFlags] & LOADOUT_SPELLS_CHOSEN) {
+        return;
+    }
+    for (i = 0; i < (SPELL_COUNT + 7) / 8; ++i) {
+        loadout[loadoutSpells + i] = 0;
+    }
+    for (i = 0; i < sizeof _defaultSpells; ++i) {
+        _setSpellChosen(_spellIndex(_defaultSpells[i]), 1);
+    }
+    loadout[loadoutFlags] |= LOADOUT_SPELLS_CHOSEN;
+}
+
+static int _spellChosen(int index)
+{
+    if (index < 0) {
+        return 0;
+    }
+    return (LOADOUT[loadoutSpells + (index >> 3)] >> (index & 7)) & 1;
+}
+
+static void _setSpellChosen(int index, int chosen)
+{
+    u_char* bits = &LOADOUT[loadoutSpells + (index >> 3)];
+
+    if (index < 0) {
+        return;
+    }
+    if (chosen) {
+        *bits |= 1 << (index & 7);
+    } else {
+        *bits &= ~(1 << (index & 7));
+    }
+}
+
+static int _chosenSpellCount(void)
+{
+    int count = 0;
+    int i;
+
+    for (i = 0; i < SPELL_COUNT; ++i) {
+        count += _spellChosen(i);
+    }
+    return count;
+}
+
+/* (Re)fill her action table with the chosen spells Ashley knows. Levelled spells (Explosion
+ * etc.) are listed by level 1; she casts the highest level he has. */
 static void _learnSpells(vs_battle_actor2* callo)
 {
     vs_battle_actor_unk8C0* entry = &callo->armor[0][0];
     int learned = 0;
-    int i;
+    int index;
+    int id;
+    int level;
     int j;
 
-    for (i = 0; (i < sizeof _defaultSpells) && (learned < MAX_LEARNED_SPELLS); ++i) {
-        if (!vs_main_actions[_defaultSpells[i]].unlocked) {
+    _initSpellChoice();
+    for (j = 0; j < 6 * 4; ++j) {
+        if ((entry[j].id >= FIRST_SPELL_ID) && (entry[j].id <= LAST_SPELL_ID)
+            && (entry[j].id != CALLO_HEAL)) {
+            entry[j].id = 0;
+        }
+    }
+    for (index = 0; (index < SPELL_COUNT) && (learned < MAX_CALLO_SPELLS); ++index) {
+        id = _spellId(index);
+        if (!_spellChosen(index) || (id == CALLO_HEAL) || !vs_main_actions[id].unlocked) {
             continue;
+        }
+        if ((index < 18) && (id >= 106) && (id <= 130)) { /* warlock, 4 levels each */
+            for (level = 0; (level < 3) && vs_main_actions[id + 1].unlocked; ++level) {
+                ++id;
+            }
         }
         for (j = 0; (j < 6 * 4) && (entry[j].id != 0); ++j)
             ;
         if (j >= 6 * 4) {
             return;
         }
-        entry[j].id = _defaultSpells[i];
-        entry[j].index = 0;
+        entry[j].id = id;
+        entry[j].index = j & 3;
         entry[j].unk2_4 = 0;
         entry[j].unk3 = 1;
         ++learned;
