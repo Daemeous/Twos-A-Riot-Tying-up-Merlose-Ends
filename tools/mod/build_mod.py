@@ -32,6 +32,8 @@ BATTLE_CALLS = [
     (0x800CA2DC, "vs_mod_hud", 1),        # HP/MP/RISK display (vs_battle_exec)
     # The player's target lists (attack sphere, area of effect, spells): actor status checks
     (0x800A0BE0, "vs_mod_targetStatus", [0x80071C84, 0x800720FC, 0x800728D8]),
+    # Script op 88 (cutscene mode on/off): Callo leaves for cutscenes
+    (0x8007BD8C, "vs_mod_cutsceneMode", [0x800B92DC]),
 ]
 INITBTL_VRAM = 0x800F9800
 DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile

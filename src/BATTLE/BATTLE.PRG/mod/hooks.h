@@ -25,6 +25,7 @@ void vs_mod_spawnCallo(void);
 int vs_mod_frame(void);
 void vs_mod_hud(void);
 int vs_mod_countTeam(int team);
+void vs_mod_cutscene(int on);
 unsigned int vs_mod_targetStatus(int actor);
 
 /* MENU3.PRG (ITEMS > OPTIONS: EQUIP and MERLOSE) */

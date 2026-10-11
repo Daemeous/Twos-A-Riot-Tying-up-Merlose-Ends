@@ -1,0 +1,151 @@
+"""Apply the Callo mod's patch kit (build/mod/kit, from tools/mod/build_mod.sh) to a finished
+Vagrant Story (USA) disc image.
+
+Run it last, after any other mods: Zenith (any PPF tool) and the randomizer replace whole files,
+which would undo changes made before them. Every byte the kit changes is checked first: if
+another mod changed one of them, nothing is written. Running it again on a patched image does
+nothing.
+
+usage: patch_image.py <kit dir> <image.bin>   (modifies the image in place)
+"""
+
+import json
+import os
+import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from apply_ppf import fix_mode2_form1  # noqa: E402
+
+RAW = 2352
+DATA = 24          # MODE2 form 1 user data offset
+SECTOR = 2048
+SUBMODE_DATA = 0x08
+SUBMODE_LAST = 0x89  # data + end of record + end of file
+SUBMODE_FORM2 = 0x20
+
+
+class Image:
+    def __init__(self, path):
+        self.f = open(path, "r+b")
+        self.dirty = {}
+
+    def sector(self, lba):
+        if lba not in self.dirty:
+            self.f.seek(lba * RAW)
+            raw = bytearray(self.f.read(RAW))
+            if len(raw) != RAW:
+                sys.exit(f"sector {lba} is past the end of the image")
+            self.dirty[lba] = raw
+        return self.dirty[lba]
+
+    def read(self, lba, size):
+        return b"".join(bytes(self.sector(lba + i)[DATA:DATA + SECTOR])
+                        for i in range(-(-size // SECTOR)))[:size]
+
+    def write(self, lba, offset, data):
+        for i, b in enumerate(data):
+            s = self.sector(lba + (offset + i) // SECTOR)
+            s[DATA + (offset + i) % SECTOR] = b
+
+    def find(self, path):
+        """(lba, size) of a file, from the ISO 9660 directories."""
+        pvd = self.read(16, SECTOR)
+        if pvd[1:6] != b"CD001":
+            sys.exit("not a PlayStation disc image (no ISO 9660 volume)")
+        lba, size = struct.unpack_from("<I", pvd, 156 + 2)[0], struct.unpack_from("<I", pvd, 156 + 10)[0]
+        for part in path.upper().split("/"):
+            data, pos, found = self.read(lba, size), 0, None
+            while pos < len(data):
+                length = data[pos]
+                if length == 0:
+                    pos = (pos // SECTOR + 1) * SECTOR
+                    continue
+                name = data[pos + 33:pos + 33 + data[pos + 32]].decode("latin-1").split(";")[0]
+                if name == part:
+                    found = struct.unpack_from("<I", data, pos + 2)[0], struct.unpack_from("<I", data, pos + 10)[0]
+                    break
+                pos += length
+            if found is None:
+                sys.exit(f"{path} not found on the disc")
+            lba, size = found
+        return lba, size
+
+    def save(self, form1_sectors):
+        for lba, raw in self.dirty.items():
+            if lba in form1_sectors:
+                fix_mode2_form1(raw)
+            self.f.seek(lba * RAW)
+            self.f.write(raw)
+        self.f.close()
+
+
+def main():
+    if len(sys.argv) != 3:
+        sys.exit(__doc__)
+    kit_dir, image_path = sys.argv[1], sys.argv[2]
+    kit = json.load(open(os.path.join(kit_dir, "patches.json")))
+    image = Image(image_path)
+    problems, already, changes, touched = [], 0, [], set()
+
+    # Check everything first
+    for path, runs in kit["files"].items():
+        lba, size = image.find(path)
+        room = -(-size // SECTOR) * SECTOR  # the file's last sector may hold appended code
+        for run in runs:
+            original, new = bytes.fromhex(run["original"]), bytes.fromhex(run["new"])
+            if run["offset"] + len(new) > room:
+                problems.append(f"{path}: change at {run['offset']:#x} is past the file's sectors")
+                continue
+            current = image.read(lba, run["offset"] + len(new))[run["offset"]:]
+            if current == new:
+                already += 1
+            elif current == original:
+                changes.append((lba, run["offset"], new, path))
+            else:
+                problems.append(f"{path} at {run['offset']:#x}: expected {original.hex()}, found "
+                                f"{current.hex()} (changed by another mod?)")
+    added = []
+    for entry in kit["added"]:
+        data = open(os.path.join(kit_dir, entry["file"]), "rb").read()
+        sectors = -(-len(data) // SECTOR)
+        data += bytes(sectors * SECTOR - len(data))
+        present = True
+        for i in range(sectors):
+            raw = image.sector(entry["lba"] + i)
+            current = bytes(raw[DATA:DATA + SECTOR])
+            if current == data[i * SECTOR:(i + 1) * SECTOR] and raw[18] & SUBMODE_DATA:
+                continue
+            present = False
+            if raw[18] != SUBMODE_FORM2 or any(current):
+                problems.append(f"{entry['file']}: sector {entry['lba'] + i} isn't the game's empty "
+                                f"padding (used by another mod, or an older version of this one?)")
+        if present:
+            already += 1
+        else:
+            added.append((entry, data, sectors))
+
+    if problems:
+        print("Not patched: the image doesn't match what the mod expects.")
+        for p in problems:
+            print("  " + p)
+        sys.exit(1)
+
+    for lba, offset, new, path in changes:
+        image.write(lba, offset, new)
+        touched.update(lba + (offset + i) // SECTOR for i in range(len(new)))
+    for entry, data, sectors in added:
+        for i in range(sectors):
+            lba = entry["lba"] + i
+            raw = image.sector(lba)
+            raw[DATA:DATA + SECTOR] = data[i * SECTOR:(i + 1) * SECTOR]
+            submode = SUBMODE_LAST if i == sectors - 1 else SUBMODE_DATA
+            raw[16:24] = bytes([0, 0, submode, 0, 0, 0, submode, 0])
+            touched.add(lba)
+    image.save(touched)
+    print(f"Patched: {len(changes)} changes to the game's files, {len(added)} files added "
+          f"({already} were already there).")
+
+
+if __name__ == "__main__":
+    main()

@@ -45,6 +45,13 @@ static void _giveStartingWeapon(void);
 #define CALLO_WEAPON_MATERIAL 3  /* Bronze */
 
 static const u_char _calloSlots[2] = { 7, 6 };
+/* She joins once the prologue is over: the progress flag the game also gates loot and the
+ * bonus wheel on (set to 3 early in the Wine Cellar). The prologue's cutscene characters need
+ * her slots' palette rows (VRAM row 0x16 + slot): sharing them corrupted their textures. */
+#define PROGRESS_FLAG 0xAB
+#define PROLOGUE_OVER 3
+char vs_battle_getStateFlag(short);
+extern u_char _awayForScene; /* merlose.h */
 /* Word-sized statics need an initialiser: that puts them in .data, which is aligned. maspsx
  * packs uninitialised (.bss) statics byte by byte, as ASPSX did, so an int there can land on
  * an odd address (DuckStation then rounds the access down onto a neighbouring variable). */
@@ -61,6 +68,10 @@ void vs_mod_spawnCallo(void)
     vs_main_inventoryWeapon* weapon;
     vs_main_inventoryBlade* blade;
     vs_main_inventoryShield* shield;
+
+    if ((vs_battle_getStateFlag(PROGRESS_FLAG) < PROLOGUE_OVER) || _awayForScene) {
+        return;
+    }
 
     /* An enemy slot (0-1 get player-only handling, creation allows < 10). Room scripts
      * move cutscene characters by slot and mostly use 2-5 and 8, so taking those made

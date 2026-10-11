@@ -1814,6 +1814,7 @@ int func_800B92A0(u_char* arg0, short arg1)
 int func_800B92D0(u_char* arg0, short arg1)
 {
     func_8007BD8C(arg0[1] ^ 1);
+    VS_CALLO_CALL(vs_mod_cutscene(arg0[1] ^ 1));
     return 0;
 }
 

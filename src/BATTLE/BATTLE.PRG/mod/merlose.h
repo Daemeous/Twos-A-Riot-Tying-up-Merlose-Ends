@@ -3,6 +3,7 @@
  * MENU3/MENU0 calls land here and call into it. */
 
 u_char _menuMode; /* callo.h */
+extern u_char D_800EB9AF; /* the game hides Ashley's HUD: cutscenes, menus */
 u_char _respawnPending; /* respawn her once the menu has closed (see below) */
 
 vs_battle_actor* _calloActor(void)
@@ -219,6 +220,30 @@ int func_80088554(void);
 void func_8007D340(int); /* _removeActorAtIndex(index, 0) */
 void func_8007BF6C(int); /* clear an actor's skip flag (shown and updated) */
 
+/* --- Cutscenes -----------------------------------------------------------------------------------
+ * Cutscene scripts switch cutscene mode on and off with script op 88 (func_800B92D0 ->
+ * func_8007BD8C(on)): Ashley's HUD hides and the player loses control. Callo leaves for the
+ * scene (removed, so its characters can have her slot and palette rows) and comes back next
+ * to Ashley once his HUD is back (vs_mod_hud), with the HP and MP she had. */
+u_char _awayForScene;
+static u_char _returnPending;
+static int _sceneHP = 0; /* initialised: see _calloSlot in callo.c */
+static int _sceneMP = 0;
+
+void vs_mod_cutscene(int on)
+{
+    vs_battle_actor* callo = _calloActor();
+
+    if (!on || (callo == NULL) || (callo->unk3C->currentHP == 0)) {
+        return;
+    }
+    _sceneHP = callo->unk3C->currentHP;
+    _sceneMP = callo->unk3C->currentMP;
+    _saveCalloGear(callo);
+    func_8007D340(_calloSlot);
+    _awayForScene = 1;
+}
+
 /* Spawns start skipped (hidden, not updated); a room load un-skips everyone once loaded
  * (func_8007BFC0). After a respawn mid-room, un-skip her once her model has loaded. */
 static u_char _unskipPending;
@@ -247,6 +272,37 @@ static void _respawnCallo(void)
         stats = callo->unk3C;
         stats->currentHP = (hp < stats->maxHP) ? hp : stats->maxHP;
         stats->currentMP = (mp < stats->maxMP) ? mp : stats->maxMP;
+    }
+}
+
+#ifndef VS_CALLO
+/* Patch edition: script op 88's call, redirected here by tools/mod/build_mod.py battle */
+int func_8007BD8C(int);
+
+int vs_mod_cutsceneMode(int on)
+{
+    int result = func_8007BD8C(on);
+
+    vs_mod_cutscene(on);
+    return result;
+}
+#endif
+
+static void _returnFromScene(void)
+{
+    vs_battle_actor* callo;
+    vs_battle_actor2* stats;
+
+    if (_calloActor() != NULL) {
+        return;
+    }
+    vs_mod_spawnCallo();
+    callo = _calloActor();
+    if (callo != NULL) {
+        _unskipPending = 1;
+        stats = callo->unk3C;
+        stats->currentHP = (_sceneHP < stats->maxHP) ? _sceneHP : stats->maxHP;
+        stats->currentMP = (_sceneMP < stats->maxMP) ? _sceneMP : stats->maxMP;
     }
 }
 
@@ -309,7 +365,7 @@ int vs_mod_frame(void)
             _makeEnemiesHostile(_calloSlot);
         }
     }
-    if ((_calloActor() != NULL) && _farFromAshley()) {
+    if ((_calloActor() != NULL) && !D_800EB9AF && _farFromAshley()) {
         if (++_leashFrames >= LEASH_FRAMES) {
             _leashFrames = 0;
             _respawnPending = 1;
@@ -322,7 +378,11 @@ int vs_mod_frame(void)
         _unskipPending = 0;
         func_8007BF6C(_calloSlot);
     }
-    if (_respawnPending) {
+    if (_returnPending && !D_800EB9AF) {
+        _returnPending = 0;
+        _returnFromScene();
+    }
+    if (_respawnPending && !D_800EB9AF) {
         _respawnPending = 0;
         _respawnCallo();
     }
@@ -426,6 +486,8 @@ static void _renderMiniBar(int colorIndex, int current, int max, int xy)
     vs_scratch.unk0 = prim + 14;
 }
 
+/* Her bars hide while the game hides Ashley's HUD (cutscenes, menus: D_800EB9AF). After a
+ * cutscene she comes back once it is shown again (also if a room change ended the scene). */
 void vs_mod_hud(void)
 {
     vs_battle_actor* callo;
@@ -433,12 +495,23 @@ void vs_mod_hud(void)
     int xy;
 
     func_800CA2DC();
+    if (D_800EB9AF) {
+        return;
+    }
+    if (_awayForScene) {
+        _awayForScene = 0;
+        _returnPending = 1;
+    }
     callo = _calloActor();
-    if ((callo == NULL) || (D_800F4538[_calloSlot] == NULL) || D_800F4538[_calloSlot]->unk0.skip) {
+    if (callo == NULL) {
+        return;
+    }
+    if ((D_800F4538[_calloSlot] == NULL) || D_800F4538[_calloSlot]->unk0.skip) {
         return;
     }
     stats = callo->unk3C;
-    xy = vs_getXY(MINI_HUD_X, MINI_HUD_Y) - D_800EB9B0;
+    /* Slides in with Ashley's (D_800EB9B0 = how far his is still up), from above the screen */
+    xy = vs_getXY(MINI_HUD_X, MINI_HUD_Y) - D_800EB9B0 * 2;
     _renderMiniBar(0, stats->currentHP, stats->maxHP, xy);
     _renderMiniBar(1, stats->currentMP, stats->maxMP, xy + vs_getXY(0, MINI_HUD_ROW));
     if (stats->risk != 0) {

@@ -5,7 +5,7 @@
 #
 #   make CALLO=1 callo-image   -> build/disks/SLUS-01040.bin/.cue
 
-CALLO_SOURCES := $(shell grep -rlE 'VS_CALLO|VS_SELECTABLE_ROULETTE|mod/hooks\.h' src --include=*.c)
+CALLO_SOURCES := $(sort $(wildcard src/BATTLE/BATTLE.PRG/mod/*.c) \n	$(shell grep -rlE 'VS_CALLO|VS_SELECTABLE_ROULETTE|mod/hooks\.h' src --include=*.c))
 
 # Their code depends on the mode, so rebuild them when it changes
 $(patsubst %,$(BUILD)/%.o,$(CALLO_SOURCES)): $(SHIFT_STAMP)
