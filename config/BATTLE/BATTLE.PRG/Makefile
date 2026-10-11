@@ -21,7 +21,7 @@ $(BUILD)/config/$(battle.prg)/link.d: \
 	config/MENU/MAINMENU.PRG/symbol_addrs.txt
 
 # Patch single byte in string table padding, seems it might actually be used though
-$(BUILD)/data/BATTLE/BATTLE.PRG: FIXUP = $(XDELTA) -dfans $@ tools/data/BATTLE/BATTLE.PRG.xdelta $@
+$(BUILD)/data/BATTLE/BATTLE.PRG: FIXUP = $(VPYTHON) tools/data/BATTLE/battle_prg_fixup.py $@
 
 $(BUILD)/assets/BATTLE/BATTLE.PRG/keyStrings.vsStringFixed.bin $(BUILD)/assets/BATTLE/BATTLE.PRG/keyStrings.h &: $(BUILD)/assets/BATTLE/BATTLE.PRG/keyStrings.vsStringFixed.yaml | $$(@D)/
 	$(ECHO) Converting $<

@@ -1,0 +1,195 @@
+"""Helpers for tools/mod/build_mod.sh.
+
+pack   <code.bin> <out> <magic> <base> <limit> <spawn>
+battle  <BATTLE.PRG> <mod entry> <frame hook>   room-spawn return -> mod entry; upkeep call -> hook
+initbtl <INITBTL.PRG> <loader.bin> <loader base> <loader entry> <disc load size>
+xml    <disc xml> <lba> <size>      put ENDING/CALLO.BIN inside the padding before NULL.DAT
+verify <disc image> <lba> <file>    check CALLO.BIN and NULL.DAT sit where expected
+menu3  <MENU3.PRG> <wrapper addresses...>  MENU3 calls -> mod wrappers (see MENU3_CALLS)
+"""
+
+import re
+import struct
+import sys
+
+VRAM = 0x80068800
+ROOM_SPAWN_START = 0x80089114  # func_80089114, spawns the room's characters
+ROOM_SPAWN_END = 0x80089888
+JR_RA = 0x03E00008
+UPKEEP_CALL = 0x8007A460       # vs_battle_exec: jal func_80088B6C (per-frame upkeep)
+UPKEEP = 0x80088B6C
+INITBTL_VRAM = 0x800F9800
+DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile
+SECTOR = 2048
+RAW_SECTOR = 2352
+RAW_DATA = 24                  # MODE2 form 1 user data offset
+ENDING_PADDING = 15736         # dummy sectors between ENDING.XA and NULL.DAT
+ENDING_XA_END = 303264         # first sector of that padding
+NULL_DAT_LBA = 319000
+
+
+HEADER_SIZE = 0x20
+
+
+def pack(code_path, out_path, magic, base, limit, *functions):
+    """Header (0x20 bytes): magic, size, then a function table (room-spawn entry, rest zero)."""
+    code = open(code_path, "rb").read()
+    entries = list(functions) + [0] * (6 - len(functions))
+    header = struct.pack("<8I", magic, HEADER_SIZE + len(code), *entries)
+    entry = functions[0]
+    data = header + code
+    data += bytes(-len(data) % SECTOR)
+    if base + len(data) > limit:
+        sys.exit(f"mod too big: {len(data)} bytes, room for {limit - base}")
+    open(out_path, "wb").write(data)
+    print(f"CALLO.BIN: {HEADER_SIZE + len(code)} bytes used, {len(data)} on disc, entry {entry:#x}, "
+          f"{limit - base - len(data)} bytes of RAM to spare")
+
+
+def battle(prg_path, entry, frame):
+    """Redirect func_80089114's only `jr $ra` to a tail call of the mod's entry point, and
+    vs_battle_exec's per-frame upkeep call to the mod's frame hook (which calls the upkeep)."""
+    prg = bytearray(open(prg_path, "rb").read())
+    returns = [a for a in range(ROOM_SPAWN_START, ROOM_SPAWN_END, 4)
+               if struct.unpack_from("<I", prg, a - VRAM)[0] == JR_RA]
+    if len(returns) != 1:
+        sys.exit(f"expected one `jr $ra` in func_80089114, found {[hex(a) for a in returns]}")
+    struct.pack_into("<I", prg, returns[0] - VRAM, 0x08000000 | ((entry >> 2) & 0x03FFFFFF))
+    found = struct.unpack_from("<I", prg, UPKEEP_CALL - VRAM)[0]
+    if found != 0x0C000000 | ((UPKEEP >> 2) & 0x03FFFFFF):
+        sys.exit(f"BATTLE.PRG {UPKEEP_CALL:#x}: expected jal {UPKEEP:#x}, found {found:#010x}")
+    struct.pack_into("<I", prg, UPKEEP_CALL - VRAM, 0x0C000000 | ((frame >> 2) & 0x03FFFFFF))
+    open(prg_path, "wb").write(prg)
+    print(f"BATTLE.PRG: {returns[0]:#x} -> j {entry:#x}; {UPKEEP_CALL:#x} -> jal {frame:#x}")
+
+
+def initbtl(path, loader_path, base, entry, load_size):
+    """Append the loader to INITBTL.PRG and redirect its SYSTEM.DAT load call to it."""
+    prg = bytearray(open(path, "rb").read())
+    loader = open(loader_path, "rb").read()
+    end = INITBTL_VRAM + len(prg)
+    if not end <= base < end + 16:
+        sys.exit(f"loader linked at {base:#x} but INITBTL.PRG ends at {end:#x}")
+    padding = base - end
+    if len(prg) + padding + len(loader) > load_size:
+        sys.exit(f"loader doesn't fit in INITBTL.PRG's {load_size} loaded bytes")
+    jal_load = 0x0C000000 | ((DISK_LOAD_FILE >> 2) & 0x03FFFFFF)
+    calls = [i for i in range(0, len(prg), 4) if struct.unpack_from("<I", prg, i)[0] == jal_load]
+    if len(calls) != 1:
+        sys.exit(f"expected one vs_main_diskLoadFile call in INITBTL.PRG, found {len(calls)}")
+    struct.pack_into("<I", prg, calls[0], 0x0C000000 | ((entry >> 2) & 0x03FFFFFF))
+    prg += bytes(padding) + loader
+    open(path, "wb").write(prg)
+    print(f"INITBTL.PRG: SYSTEM.DAT load at {INITBTL_VRAM + calls[0]:#x} -> jal {entry:#x}; loader "
+          f"{len(loader)} bytes at {base:#x}; {INITBTL_VRAM + load_size - base - len(loader)} bytes left")
+
+
+def xml(path, lba, size):
+    text = open(path, encoding="utf-8").read()
+    dummy = f'<dummy sectors="{ENDING_PADDING}" type="32"/>'
+    if text.count(dummy) != 1:
+        sys.exit("ENDING padding entry not found exactly once")
+    before = lba - ENDING_XA_END
+    sectors = -(-size // SECTOR)
+    after = ENDING_PADDING - before - sectors
+    if before < 0 or after < 0:
+        sys.exit("CALLO.BIN does not fit in the ENDING padding")
+    indent = re.search(r"\n(\s*)" + re.escape(dummy), text).group(1)
+    replacement = (f'<dummy sectors="{before}" type="32"/>\n'
+                   f'{indent}<file name="CALLO.BIN" type="data"/>\n'
+                   f'{indent}<dummy sectors="{after}" type="32"/>')
+    open(path, "w", encoding="utf-8").write(text.replace(dummy, replacement))
+    print(f"disc layout: CALLO.BIN at LBA {lba}, {sectors} sectors; padding {before} + {after}")
+
+
+MENU3_VRAM = 0x80102800
+# MENU3 calls redirected to the mod: (original target, wrapper, call address or None for every
+# call to that target, expected number of calls)
+MENU3_CALLS = [
+    (0x801053EC, "vs_mod_itemNavigation", 0x80108A64, 1),  # vs_menu3_exec: row = _itemNavigation(0)
+    (0x80108088, "vs_mod_equipMenu", 0x80108B88, 1),       # vs_menu3_exec: row = _equipMenu(0)
+    (0x801005E0, "vs_mod_setMenuRows", 0x801056C4, 1),     # ITEMS > OPTIONS rows
+    (0x801090C4, "vs_mod_loadObjectData", None, 2),        # weapon/shield screens' model loads
+]
+
+
+def jal(target):
+    return 0x0C000000 | ((target >> 2) & 0x03FFFFFF)
+
+
+def menu3(path, *wrappers):
+    """Redirect calls in MENU3.PRG to the mod's wrappers. Only jal instructions change, so the
+    file keeps its size and other patches to it (Zenith's) still apply."""
+    prg = bytearray(open(path, "rb").read())
+    if len(wrappers) != len(MENU3_CALLS):
+        sys.exit(f"menu3: expected {len(MENU3_CALLS)} wrapper addresses")
+    for (original, name, address, count), wrapper in zip(MENU3_CALLS, wrappers):
+        if address is None:
+            sites = [MENU3_VRAM + i for i in range(0, len(prg), 4)
+                     if struct.unpack_from("<I", prg, i)[0] == jal(original)]
+        else:
+            sites = [address] if struct.unpack_from("<I", prg, address - MENU3_VRAM)[0] == jal(original) else []
+        if len(sites) != count:
+            sys.exit(f"MENU3.PRG: expected {count} jal {original:#x} for {name}, found {len(sites)}")
+        for site in sites:
+            struct.pack_into("<I", prg, site - MENU3_VRAM, jal(wrapper))
+            print(f"MENU3.PRG: {site:#x} jal {original:#x} -> {name} {wrapper:#x}")
+    open(path, "wb").write(prg)
+
+
+def read_sector(image, lba):
+    image.seek(lba * RAW_SECTOR + RAW_DATA)
+    return image.read(SECTOR)
+
+
+def sectors(build_dir, original_dir):
+    """Every rebuilt file must keep its original sector count, or every later file on the disc
+    would move (zones store raw disc positions; PPF mods like Zenith patch fixed offsets)."""
+    import os
+    bad = []
+    for root, _, files in os.walk(original_dir):
+        for f in files:
+            orig = os.path.join(root, f)
+            built = os.path.join(build_dir, os.path.relpath(orig, original_dir))
+            if os.path.exists(built):
+                a, b = -(-os.path.getsize(orig) // SECTOR), -(-os.path.getsize(built) // SECTOR)
+                if a != b:
+                    bad.append(f"{os.path.relpath(orig, original_dir)}: {a} -> {b} sectors")
+    if bad:
+        sys.exit("files changed sector count (would shift the disc layout):\n  " + "\n  ".join(bad))
+    print("sector counts: all files unchanged")
+
+
+def verify(image_path, lba, file_path):
+    data = open(file_path, "rb").read()
+    with open(image_path, "rb") as image:
+        on_disc = b"".join(read_sector(image, lba + i) for i in range(-(-len(data) // SECTOR)))
+        null_dat = read_sector(image, NULL_DAT_LBA)[:1]
+    if on_disc[:len(data)] != data:
+        sys.exit(f"CALLO.BIN is not at LBA {lba} in the image")
+    print(f"verified: CALLO.BIN at LBA {lba}; NULL.DAT still at {NULL_DAT_LBA} (byte {null_dat.hex()})")
+
+
+def main():
+    cmd, *args = sys.argv[1:]
+    num = lambda s: int(s, 0)
+    if cmd == "pack":
+        pack(args[0], args[1], *map(num, args[2:]))
+    elif cmd == "battle":
+        battle(args[0], num(args[1]), num(args[2]))
+    elif cmd == "initbtl":
+        initbtl(args[0], args[1], *map(num, args[2:5]))
+    elif cmd == "xml":
+        xml(args[0], num(args[1]), num(args[2]))
+    elif cmd == "sectors":
+        sectors(args[0], args[1])
+    elif cmd == "menu3":
+        menu3(args[0], *map(num, args[1:]))
+    elif cmd == "verify":
+        verify(args[0], num(args[1]), args[2])
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()
