@@ -326,6 +326,28 @@ int vs_mod_countTeam(int team)
     return count;
 }
 
+/* --- Ashley's targeting ---------------------------------------------------------------------------
+ * The player's target lists (the attack sphere, area of effect, spells and items) take every
+ * character whose status says "targetable" and whose team the action allows - and nearly all
+ * actions allow every team, which is why he could hit her. Each list's status call is
+ * redirected here (build_mod.py battle): for Ashley's actions she's only a target of support
+ * ones (action target kind 1: Heal, Prostasia, Herakles, the elemental guards, items...), so
+ * his weapon, Break Arts and attack spells can't pick her or her body parts. */
+extern u_char* D_800F19CC; /* the action being set up: action id (u16) at 8, actor at 12 */
+#define SUPPORT_ACTION 1    /* vs_action_t.unk2_4 */
+#define TARGETABLE 1        /* func_800A0BE0 status bit */
+
+u_int vs_mod_targetStatus(int actor)
+{
+    u_int status = func_800A0BE0(actor);
+
+    if ((actor == _calloSlot) && (D_800F19CC[12] == 0) && (_calloActor() != NULL)
+        && (vs_main_actions[*(u_short*)(D_800F19CC + 8)].unk2_4 != SUPPORT_ACTION)) {
+        status &= ~TARGETABLE;
+    }
+    return status;
+}
+
 /* --- Her HP/MP/RISK display --------------------------------------------------------------------
  * A smaller copy of Ashley's (func_800CA2DC, top left): half-width bars under his, drawn the
  * same way (vs_battle_renderStatBar), sliding out with his (D_800EB9B0). vs_battle_exec's

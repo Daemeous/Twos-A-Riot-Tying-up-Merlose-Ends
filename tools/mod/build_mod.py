@@ -22,9 +22,12 @@ JR_RA = 0x03E00008
 UPKEEP_CALL = 0x8007A460       # vs_battle_exec: jal func_80088B6C (per-frame upkeep)
 UPKEEP = 0x80088B6C
 # Other BATTLE.PRG calls redirected to the mod: (original target, wrapper, expected calls)
+# (original target, wrapper, expected calls, or the call addresses when only some are redirected)
 BATTLE_CALLS = [
     (0x8007CF80, "vs_mod_countTeam", 2),  # team head count: room scripts' "enemies left"
     (0x800CA2DC, "vs_mod_hud", 1),        # HP/MP/RISK display (vs_battle_exec)
+    # The player's target lists (attack sphere, area of effect, spells): actor status checks
+    (0x800A0BE0, "vs_mod_targetStatus", [0x80071C84, 0x800720FC, 0x800728D8]),
 ]
 INITBTL_VRAM = 0x800F9800
 DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile
@@ -77,7 +80,11 @@ def battle(prg_path, entry, frame, *wrappers):
         sys.exit(f"battle: expected {len(BATTLE_CALLS)} wrapper addresses")
     for (original, name, count), wrapper in zip(BATTLE_CALLS, wrappers):
         jal = 0x0C000000 | ((original >> 2) & 0x03FFFFFF)
-        sites = [i for i in range(0, len(prg), 4) if struct.unpack_from("<I", prg, i)[0] == jal]
+        if isinstance(count, list):
+            sites = [a - VRAM for a in count if struct.unpack_from("<I", prg, a - VRAM)[0] == jal]
+            count = len(count)
+        else:
+            sites = [i for i in range(0, len(prg), 4) if struct.unpack_from("<I", prg, i)[0] == jal]
         if len(sites) != count:
             sys.exit(f"BATTLE.PRG: expected {count} jal {original:#x} for {name}, found {len(sites)}")
         for i in sites:
