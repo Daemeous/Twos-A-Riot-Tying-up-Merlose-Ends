@@ -790,9 +790,9 @@ int _renderCongratulationsScreen(void)
         } else {
             if (_reelStep == 0) {
                 if (vs_main_buttonsPressed.all & PADLdown) {
-                    _reelStep = 16;
+                    _reelStep = -16; /* the next entry below comes up into the window */
                 } else if (vs_main_buttonsPressed.all & PADLup) {
-                    _reelStep = -16;
+                    _reelStep = 16;
                 } else if (vs_main_buttonsPressed.all & PADRright) {
                     vs_main_playSfxDefault(0x7E, 0x77);
                     vs_main_playSfxDefault(0x7E, 0x78);
