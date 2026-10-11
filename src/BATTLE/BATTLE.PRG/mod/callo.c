@@ -380,15 +380,16 @@ static void _applyLoadout(vs_battle_actor2* callo)
  * (6 body parts x 4 actions; the template uses three: an attack on each arm and Heal), so the
  * learned spells go in its free entries. Until there's a menu to choose them, only attack and
  * cure spells: the AI re-casts buffs constantly (as Sydney did with Prostasia). Ids are
- * vs_main_actions[]: Ashley's spells are 54-97; the AI already casts ones from that range
- * (Grissom: Clearance, Drain Mind). */
+ * vs_main_actions[]; Ashley's are the ones in vs_battle_warlockSpellIds/shaman/sorcerer/
+ * enchanter (several spells exist twice: e.g. Fireball 81 and 99, he learns 99). The AI
+ * already casts ids from those lists (Grissom: Clearance, Drain Mind). */
 #define MAX_LEARNED_SPELLS 8
 
 static const u_char _defaultSpells[] = {
-    78, /* Lightning Bolt */
-    81, /* Fireball */
-    84, /* Vulcan Lance */
-    86, /* Aqua Blast */
+    98, /* Lightning Bolt (Ashley's ids: vs_battle_warlockSpellIds etc., not 78-86) */
+    99, /* Fireball */
+    100, /* Vulcan Lance */
+    101, /* Aqua Blast */
     97, /* Solid Shock */
     87, /* Restoration */
     88, /* Antidote */
