@@ -102,7 +102,10 @@ or the randomizer.)
    open the `.cue` in a text editor and change the name on its `FILE` line to match: otherwise
    it still loads the original, unpatched disc.
 2. Optionally apply Zenith to the copy, with any PPF tool.
-3. Optionally run the randomizer on the copy.
+3. Optionally run the randomizer on the copy. **Put the copy (with its `.cue`) in the
+   randomizer's own folder, next to its `.exe`, before selecting it**: picking a disc elsewhere
+   moves its working folder there, its injection tool isn't found, and it reports success
+   having changed almost nothing.
 4. Last, apply the mod, from the repository's folder:
 
    ```sh
