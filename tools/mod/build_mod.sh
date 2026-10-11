@@ -61,7 +61,7 @@ link() {  # $1 = object, $2 = base, $3 = entry symbol, $4 = output name, $5 = se
         echo "symbol clash in $4:"; awk '{print $1}' "$OUT/$4_syms.ld" | sort | comm -12 - "$OUT/$4_own.txt"
         exit 1
     fi
-    printf 'INCLUDE %s\nSECTIONS\n{\n    . = %s;\n    .mod : { *(.text) *(.rodata*) *(.data) *(.sdata) *(.bss) *(.sbss) *(COMMON) }\n    /DISCARD/ : { *(*) }\n}\n' \
+    printf 'INCLUDE %s\nSECTIONS\n{\n    . = %s;\n    .mod : { *(.text) *(.rodata*) mod_checked_end = .; *(.data) *(.sdata) *(.bss) *(.sbss) *(COMMON) }\n    /DISCARD/ : { *(*) }\n}\n' \
         "$OUT/$4_syms.ld" "$2" > "$OUT/$4.ld"
     mipsel-linux-gnu-ld -nostdlib --build-id=none --no-warn-rwx-segments -T "$OUT/$4.ld" \
         -e "$3" -o "$OUT/$4.elf" "$1"
@@ -76,13 +76,17 @@ sym() {  # address from the symbol lists
 link "$MODDIR/callo.c.o" "$((MOD_BASE + 0x20))" vs_mod_spawnCallo callo
 ENTRY=$(addr "$OUT/callo.elf" vs_mod_spawnCallo)
 python3 tools/mod/build_mod.py pack "$OUT/callo.bin" "$OUT/CALLO.BIN" \
-    "$MOD_MAGIC" "$MOD_BASE" "$MOD_LIMIT" "$ENTRY"
+    "$MOD_MAGIC" "$MOD_BASE" "$MOD_LIMIT" "$(addr "$OUT/callo.elf" mod_checked_end)" "$ENTRY"
 MOD_SIZE=$(stat -c %s "$OUT/CALLO.BIN")
 if (( MOD_SIZE > (MENU_LBA - MOD_LBA) * 2048 )); then echo "CALLO.BIN overlaps CALLOMNU.BIN on disc"; exit 1; fi
 
 # 1b. The menu module, linked against the mod
 link "$MODDIR/menu.c.o" "$((MENU_BASE + 0x20))" vs_menu_equipEnter menu "$OUT/callo.elf"
-python3 tools/mod/build_mod.py pack "$OUT/menu.bin" "$OUT/CALLOMNU.BIN"     "$MENU_MAGIC" "$MENU_BASE" "$MENU_LIMIT"     "$(addr "$OUT/menu.elf" vs_menu_equipEnter)" "$(addr "$OUT/menu.elf" vs_menu_equipLeave)"     "$(addr "$OUT/menu.elf" vs_menu_equipCallo)" "$(addr "$OUT/menu.elf" vs_menu_markSpells)"     "$(addr "$OUT/menu.elf" vs_menu_toggleSpell)"
+python3 tools/mod/build_mod.py pack "$OUT/menu.bin" "$OUT/CALLOMNU.BIN" \
+    "$MENU_MAGIC" "$MENU_BASE" "$MENU_LIMIT" "$(addr "$OUT/menu.elf" mod_checked_end)" \
+    "$(addr "$OUT/menu.elf" vs_menu_equipEnter)" "$(addr "$OUT/menu.elf" vs_menu_equipLeave)" \
+    "$(addr "$OUT/menu.elf" vs_menu_equipCallo)" "$(addr "$OUT/menu.elf" vs_menu_markSpells)" \
+    "$(addr "$OUT/menu.elf" vs_menu_toggleSpell)"
 MENU_SIZE=$(stat -c %s "$OUT/CALLOMNU.BIN")
 
 # 2. The loader, configured with where to find the mod, after INITBTL.PRG (16-aligned)
