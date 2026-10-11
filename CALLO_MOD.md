@@ -98,10 +98,12 @@ or the randomizer.)
 
 ### 6. Patch your disc
 
-1. Make a copy of your disc image to play, keeping the `.cue` beside it.
+1. Make a copy of your disc image to play, with a copy of its `.cue`. If you rename the `.bin`,
+   open the `.cue` in a text editor and change the name on its `FILE` line to match: otherwise
+   it still loads the original, unpatched disc.
 2. Optionally apply Zenith to the copy, with any PPF tool.
 3. Optionally run the randomizer on the copy.
-4. Last, apply the mod:
+4. Last, apply the mod, from the repository's folder:
 
    ```sh
    python3 tools/mod/patch_image.py build/mod/kit path/to/your-copy.bin
