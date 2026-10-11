@@ -8,7 +8,9 @@
 #   func_80089114's return (BATTLE.PRG) is patched into a tail call to the mod's entry point.
 #   vs_battle_exec's per-frame upkeep call (BATTLE.PRG) goes through the mod's frame hook.
 #   Nothing goes in BATTLE.PRG's spare tail: Zenith keeps its variables there.
-#   MENU3.PRG: calls redirected to the MERLOSE menu wrappers (no size change).
+#   MENU3.PRG / MENU0.PRG: calls redirected to the mod's menu wrappers (no size change).
+#   src/BATTLE/BATTLE.PRG/mod/menu.c  -> ENDING/CALLOMNU.BIN, the code only menus use; the mod
+#       loads it into the gap above the menu overlays when needed (see mod/callo.h).
 #
 # Output: build/disks/SLUS-01040.bin/.cue. Other PPF mods (Zenith) can be applied on top
 # with tools/mod/apply_ppf.py.
@@ -23,15 +25,22 @@ MOD_BASE=0x800F6400     # above Zenith's variables (it uses RAM up to 0x800F60B0
 MOD_LIMIT=0x800F9800   # INITBTL.PRG / effect overlays load here
 MOD_LBA=303280         # inside the padding between ENDING.XA (ends 303264) and NULL.DAT (319000)
 MOD_MAGIC=0x4F4C4143   # "CALO"
+MENU_BASE=0x80109800   # menu module: above MENU3.PRG/MENU0.PRG (callo.h MENU_MODULE)
+MENU_LIMIT=0x8010C000  # the heap
+MENU_LBA=$((MOD_LBA + 8))  # callo.h MENU_MODULE_LBA; CALLO.BIN gets up to 8 sectors
+MENU_MAGIC=0x554E4D43  # "CMNU"
 
 mkdir -p "$OUT" "$MODDIR"
 rm -f "$PRG" "$INITBTL" "$MODDIR"/*.o
-make -j8 "$PRG" "$INITBTL" "$MODDIR/callo.c.o"
+make -j8 "$PRG" "$INITBTL" "$MODDIR/callo.c.o" "$MODDIR/menu.c.o"
 
 # Address definitions: BATTLE.PRG exports, unexported func_/D_XXXXXXXX by name, then the SLUS
 # and BATTLE.PRG symbol lists (e.g. vs_scratch, which the linker script places)
-symbols() {  # $1 = object
+symbols() {  # $1 = object, $2 = optional elf whose symbols it may also use (the mod's)
     mipsel-linux-gnu-nm build/data/BATTLE/BATTLE.PRG.elf | awk '{print $3 " = 0x" $1 ";"}'
+    if [[ -n ${2:-} ]]; then
+        mipsel-linux-gnu-nm --defined-only "$2" | awk '$2 ~ /[TtDdBbRr]/ {print $3 " = 0x" $1 ";"}'
+    fi
     mipsel-linux-gnu-nm -u "$1" | awk '{print $2}' | while read -r s; do
         if [[ $s =~ ^func_[0-9A-F]{8}$ ]]; then
             echo "$s = 0x${s#func_};"
@@ -43,8 +52,14 @@ symbols() {  # $1 = object
         fi
     done
 }
-link() {  # $1 = object, $2 = base, $3 = entry symbol, $4 = output name
-    symbols "$1" | awk '!seen[$1]++' > "$OUT/$4_syms.ld"
+link() {  # $1 = object, $2 = base, $3 = entry symbol, $4 = output name, $5 = see symbols
+    symbols "$1" "${5:-}" | awk '!seen[$1]++' > "$OUT/$4_syms.ld"
+    # A name both defined in the object and listed would silently take the listed address
+    mipsel-linux-gnu-nm --defined-only -g "$1" | awk '{print $3}' | sort > "$OUT/$4_own.txt"
+    if awk '{print $1}' "$OUT/$4_syms.ld" | sort | comm -12 - "$OUT/$4_own.txt" | grep -q .; then
+        echo "symbol clash in $4:"; awk '{print $1}' "$OUT/$4_syms.ld" | sort | comm -12 - "$OUT/$4_own.txt"
+        exit 1
+    fi
     printf 'INCLUDE %s\nSECTIONS\n{\n    . = %s;\n    .mod : { *(.text) *(.rodata*) *(.data) *(.sdata) *(.bss) *(.sbss) *(COMMON) }\n    /DISCARD/ : { *(*) }\n}\n' \
         "$OUT/$4_syms.ld" "$2" > "$OUT/$4.ld"
     mipsel-linux-gnu-ld -nostdlib --build-id=none --no-warn-rwx-segments -T "$OUT/$4.ld" \
@@ -59,6 +74,12 @@ ENTRY=$(addr "$OUT/callo.elf" vs_mod_spawnCallo)
 python3 tools/mod/build_mod.py pack "$OUT/callo.bin" "$OUT/CALLO.BIN" \
     "$MOD_MAGIC" "$MOD_BASE" "$MOD_LIMIT" "$ENTRY"
 MOD_SIZE=$(stat -c %s "$OUT/CALLO.BIN")
+if (( MOD_SIZE > (MENU_LBA - MOD_LBA) * 2048 )); then echo "CALLO.BIN overlaps CALLOMNU.BIN on disc"; exit 1; fi
+
+# 1b. The menu module, linked against the mod
+link "$MODDIR/menu.c.o" "$((MENU_BASE + 0x20))" vs_menu_equipEnter menu "$OUT/callo.elf"
+python3 tools/mod/build_mod.py pack "$OUT/menu.bin" "$OUT/CALLOMNU.BIN"     "$MENU_MAGIC" "$MENU_BASE" "$MENU_LIMIT"     "$(addr "$OUT/menu.elf" vs_menu_equipEnter)" "$(addr "$OUT/menu.elf" vs_menu_equipLeave)"     "$(addr "$OUT/menu.elf" vs_menu_equipCallo)" "$(addr "$OUT/menu.elf" vs_menu_markSpells)"     "$(addr "$OUT/menu.elf" vs_menu_toggleSpell)"
+MENU_SIZE=$(stat -c %s "$OUT/CALLOMNU.BIN")
 
 # 2. The loader, configured with where to find the mod, after INITBTL.PRG (16-aligned)
 {
@@ -79,11 +100,11 @@ INITBTL_SIZE=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/l
 python3 tools/mod/build_mod.py initbtl "$INITBTL" "$OUT/loader.bin" "$LOADER_BASE" "$LOADER" "$INITBTL_SIZE"
 python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"     "$(addr "$OUT/callo.elf" vs_mod_countTeam)" "$(addr "$OUT/callo.elf" vs_mod_hud)"
 
-# 4. Disc: CALLO.BIN inside the ENDING padding, then the image
+# 4. Disc: CALLO.BIN and CALLOMNU.BIN inside the ENDING padding, then the image
 mkdir -p build/data/ENDING build/disks
-cp "$OUT/CALLO.BIN" build/data/ENDING/CALLO.BIN
+cp "$OUT/CALLO.BIN" "$OUT/CALLOMNU.BIN" build/data/ENDING/
 cp disks/SLUS-01040.xml build/disks/SLUS-01040.xml
-python3 tools/mod/build_mod.py xml build/disks/SLUS-01040.xml "$MOD_LBA" "$MOD_SIZE"
+python3 tools/mod/build_mod.py xml build/disks/SLUS-01040.xml     CALLO.BIN "$MOD_LBA" "$MOD_SIZE" CALLOMNU.BIN "$MENU_LBA" "$MENU_SIZE"
 touch build/disks/SLUS-01040.xml
 # MENU3.PRG: calls redirected to the MERLOSE wrappers (merlose.h); same size
 rm -f build/data/MENU/MENU3.PRG
@@ -98,4 +119,4 @@ python3 tools/mod/build_mod.py menu0 build/data/MENU/MENU0.PRG     "$(addr "$OUT
 python3 tools/mod/build_mod.py sectors build/data data
 rm -f build/disks/SLUS-01040.bin build/disks/SLUS-01040.cue  # mkpsxiso would wait for an overwrite prompt
 make -j8 image
-python3 tools/mod/build_mod.py verify build/disks/SLUS-01040.bin "$MOD_LBA" build/data/ENDING/CALLO.BIN
+python3 tools/mod/build_mod.py verify build/disks/SLUS-01040.bin     "$MOD_LBA" build/data/ENDING/CALLO.BIN "$MENU_LBA" build/data/ENDING/CALLOMNU.BIN

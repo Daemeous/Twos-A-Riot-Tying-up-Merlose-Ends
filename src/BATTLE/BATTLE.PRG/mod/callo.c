@@ -10,6 +10,7 @@
 #include "../146C.h"
 #include "../2842C.h"
 #include "../30DB0.h"
+#include "callo.h"
 
 void vs_mod_spawnCallo(void);
 /* AI state setup / teardown (6E644.c, not yet decompiled) */
@@ -25,12 +26,7 @@ static vs_battle_charInitData _calloInitData;
 static vs_battle_weaponIntermediate _vkpWeapon;
 static void _makeEnemiesHostile(int calloSlot);
 static void _copyAshleyBaseStats(vs_battle_actor2* callo);
-static vs_main_inventoryWeapon* _loadoutWeapon(void);
-static vs_main_inventoryShield* _loadoutShield(void);
 static void _applyLoadout(vs_battle_actor2* callo);
-static void _dropSharedItems(void);
-static void _learnSpells(vs_battle_actor2* callo);
-static void _setSpellChosen(int index, int chosen);
 static void _giveStartingArmor(void);
 static void _giveStartingWeapon(void);
 
@@ -52,28 +48,7 @@ static const u_char _calloSlots[2] = { 7, 6 };
 /* Word-sized statics need an initialiser: that puts them in .data, which is aligned. maspsx
  * packs uninitialised (.bss) statics byte by byte, as ASPSX did, so an int there can land on
  * an odd address (DuckStation then rounds the access down onto a neighbouring variable). */
-static int _calloSlot = 0; /* where she last spawned (0: not yet) */
-
-/* Her loadout lives in save flags 0x400-0x43F (vs_main_stateFlags.unk400): saved and loaded with
- * the game, and verified unused (no script can address flags >= 0x400; no code touches them).
- * A new game zeroes them, meaning "use the defaults". Each piece is an inventory slot (1-based,
- * 0 = default) plus the item's id, so a slot that was emptied or reused is ignored. */
-#define LOADOUT ((u_char*)&vs_main_stateFlags + 0x400)
-#define LOADOUT_VERSION 'C'
-#define LOADOUT_EMPTY 0xFF /* armour/accessory slot left empty on purpose (0 = her default) */
-enum {
-    loadoutVersion = 0,
-    loadoutWeapon = 1,    /* slot in weapons[], blade id */
-    loadoutShield = 3,    /* slot in shields[], base id */
-    loadoutArmor = 5,     /* 6 x (slot in armor[], id), one per body part */
-    loadoutAccessory = 17, /* slot in armor[], id */
-    loadoutFlags = 19,     /* LOADOUT_*; not cleared with the slots above */
-    loadoutSpells = 20     /* bit per spell in the MAGIC lists (_spellIndex): she may cast it */
-};
-#define LOADOUT_BOW_GIVEN 1 /* VKP Standard Issue has been put in the inventory */
-#define LOADOUT_SPELLS_CHOSEN 2 /* loadoutSpells set (else _defaultSpells) */
-/* Weapon categories she has battle animations for: dagger, sword, axe/mace, crossbow */
-#define CALLO_WEAPON_CATEGORIES ((1 << 1) | (1 << 2) | (1 << 4) | (1 << 9))
+int _calloSlot = 0; /* where she last spawned (0: not yet) */
 
 void vs_mod_spawnCallo(void)
 {
@@ -169,7 +144,7 @@ void vs_mod_spawnCallo(void)
 }
 
 /* The loadout's weapon, if it is still in its slot and is a type she can animate */
-static vs_main_inventoryWeapon* _loadoutWeapon(void)
+vs_main_inventoryWeapon* _loadoutWeapon(void)
 {
     u_char* loadout = LOADOUT;
     vs_main_inventoryWeapon* weapon;
@@ -192,7 +167,7 @@ static vs_main_inventoryWeapon* _loadoutWeapon(void)
 }
 
 /* The loadout's shield, if it is still in its slot */
-static vs_main_inventoryShield* _loadoutShield(void)
+vs_main_inventoryShield* _loadoutShield(void)
 {
     u_char* loadout = LOADOUT;
     int slot = loadout[loadoutShield];
@@ -300,7 +275,7 @@ static void _giveStartingWeapon(void)
 
 /* An item can't be on both characters; loadouts from before the MERLOSE menu could share one.
  * Ashley keeps it. Called while his "equipped" markers are in place. */
-static void _dropSharedItems(void)
+void _dropSharedItems(void)
 {
     u_char* loadout = LOADOUT;
     int slot;
@@ -383,28 +358,22 @@ static void _applyLoadout(vs_battle_actor2* callo)
  * chosen spells go in its free entries. Ids are vs_main_actions[]; Ashley's are the ones in the
  * four school lists (several spells exist twice: e.g. Fireball 81 and 99, he learns 99). The AI
  * already casts ids from those lists (Grissom: Clearance, Drain Mind). */
-#define MAX_CALLO_SPELLS 8
-#define CALLO_HEAL 96
-#define SPELL_COUNT (18 + 6 + 18 + 8)
-#define FIRST_SPELL_ID 54 /* lowest id in the school lists */
-#define LAST_SPELL_ID 140
-
 extern u_char vs_battle_warlockSpellIds[];
 extern u_char vs_battle_shamanSpellIds[];
 extern u_char vs_battle_sorcererSpellIds[];
 extern u_char vs_battle_enchanterSpellIds[];
 
 /* The schools in MAGIC menu order, with how many spells each menu lists */
-static u_char* const _schoolSpells[4] = { vs_battle_warlockSpellIds, vs_battle_shamanSpellIds,
+u_char* const _schoolSpells[4] = { vs_battle_warlockSpellIds, vs_battle_shamanSpellIds,
     vs_battle_sorcererSpellIds, vs_battle_enchanterSpellIds };
-static const u_char _schoolSizes[4] = { 18, 6, 18, 8 };
+const u_char _schoolSizes[4] = { 18, 6, 18, 8 };
 
 /* Until the player chooses: attack and cure spells (the AI re-casts buffs constantly, as
  * Sydney did with Prostasia) */
 static const u_char _defaultSpells[] = { 98, 99, 100, 101, 97, 87, 88, 91 };
 
 /* Position of a spell in the four lists, or -1 */
-static int _spellIndex(int id)
+int _spellIndex(int id)
 {
     int school;
     int i;
@@ -433,7 +402,7 @@ static int _spellId(int index)
     return 0;
 }
 
-static void _initSpellChoice(void)
+void _initSpellChoice(void)
 {
     u_char* loadout = LOADOUT;
     int i;
@@ -450,7 +419,7 @@ static void _initSpellChoice(void)
     loadout[loadoutFlags] |= LOADOUT_SPELLS_CHOSEN;
 }
 
-static int _spellChosen(int index)
+int _spellChosen(int index)
 {
     if (index < 0) {
         return 0;
@@ -458,7 +427,7 @@ static int _spellChosen(int index)
     return (LOADOUT[loadoutSpells + (index >> 3)] >> (index & 7)) & 1;
 }
 
-static void _setSpellChosen(int index, int chosen)
+void _setSpellChosen(int index, int chosen)
 {
     u_char* bits = &LOADOUT[loadoutSpells + (index >> 3)];
 
@@ -472,7 +441,7 @@ static void _setSpellChosen(int index, int chosen)
     }
 }
 
-static int _chosenSpellCount(void)
+int _chosenSpellCount(void)
 {
     int count = 0;
     int i;
@@ -485,7 +454,7 @@ static int _chosenSpellCount(void)
 
 /* (Re)fill her action table with the chosen spells Ashley knows. Levelled spells (Explosion
  * etc.) are listed by level 1; she casts the highest level he has. */
-static void _learnSpells(vs_battle_actor2* callo)
+void _learnSpells(vs_battle_actor2* callo)
 {
     vs_battle_actor_unk8C0* entry = &callo->armor[0][0];
     int learned = 0;

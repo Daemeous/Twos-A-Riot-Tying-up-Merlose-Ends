@@ -4,12 +4,13 @@ pack   <code.bin> <out> <magic> <base> <limit> <spawn>
 battle  <BATTLE.PRG> <mod entry> <frame hook> <wrappers...>   room-spawn return -> mod entry;
         upkeep call -> hook; BATTLE_CALLS -> wrappers
 initbtl <INITBTL.PRG> <loader.bin> <loader base> <loader entry> <disc load size>
-xml    <disc xml> <lba> <size>      put ENDING/CALLO.BIN inside the padding before NULL.DAT
-verify <disc image> <lba> <file>    check CALLO.BIN and NULL.DAT sit where expected
+xml    <disc xml> (<name> <lba> <size>)...   put files inside the padding before NULL.DAT
+verify <disc image> (<lba> <file>)...        check they and NULL.DAT sit where expected
 menu3  <MENU3.PRG> <wrapper addresses...>  MENU3 calls -> mod wrappers (see MENU3_CALLS)
 menu0  <MENU0.PRG> <magicRows> <magicCost>  MAGIC menu calls -> mod wrappers (MENU0_CALLS)
 """
 
+import os
 import re
 import struct
 import sys
@@ -39,17 +40,23 @@ HEADER_SIZE = 0x20
 
 
 def pack(code_path, out_path, magic, base, limit, *functions):
-    """Header (0x20 bytes): magic, size, then a function table (room-spawn entry, rest zero)."""
+    """Header (0x20 bytes): magic, size, a function table of up to 5 entry points (rest zero),
+    then a checksum (sum of the code's words; the menu module is checked with it). The whole
+    file, padded to sectors, is what gets loaded, so that must fit below `limit`."""
     code = open(code_path, "rb").read()
-    entries = list(functions) + [0] * (6 - len(functions))
-    header = struct.pack("<8I", magic, HEADER_SIZE + len(code), *entries)
-    entry = functions[0]
+    code += bytes(-len(code) % 4)
+    if len(functions) > 5:
+        sys.exit("pack: at most 5 entry points")
+    entries = list(functions) + [0] * (5 - len(functions))
+    checksum = sum(struct.unpack(f"<{len(code) // 4}I", code)) & 0xFFFFFFFF
+    header = struct.pack("<8I", magic, HEADER_SIZE + len(code), *entries, checksum)
     data = header + code
     data += bytes(-len(data) % SECTOR)
+    name = os.path.basename(out_path)
     if base + len(data) > limit:
-        sys.exit(f"mod too big: {len(data)} bytes, room for {limit - base}")
+        sys.exit(f"{name} too big: {len(data)} bytes on disc, room for {limit - base}")
     open(out_path, "wb").write(data)
-    print(f"CALLO.BIN: {HEADER_SIZE + len(code)} bytes used, {len(data)} on disc, entry {entry:#x}, "
+    print(f"{name}: {HEADER_SIZE + len(code)} bytes used, {len(data)} on disc, "
           f"{limit - base - len(data)} bytes of RAM to spare")
 
 
@@ -101,22 +108,29 @@ def initbtl(path, loader_path, base, entry, load_size):
           f"{len(loader)} bytes at {base:#x}; {INITBTL_VRAM + load_size - base - len(loader)} bytes left")
 
 
-def xml(path, lba, size):
+def xml(path, *files):
+    """Put files (name, lba, size, ...) inside the ENDING padding before NULL.DAT, in order."""
     text = open(path, encoding="utf-8").read()
     dummy = f'<dummy sectors="{ENDING_PADDING}" type="32"/>'
     if text.count(dummy) != 1:
         sys.exit("ENDING padding entry not found exactly once")
-    before = lba - ENDING_XA_END
-    sectors = -(-size // SECTOR)
-    after = ENDING_PADDING - before - sectors
-    if before < 0 or after < 0:
-        sys.exit("CALLO.BIN does not fit in the ENDING padding")
     indent = re.search(r"\n(\s*)" + re.escape(dummy), text).group(1)
-    replacement = (f'<dummy sectors="{before}" type="32"/>\n'
-                   f'{indent}<file name="CALLO.BIN" type="data"/>\n'
-                   f'{indent}<dummy sectors="{after}" type="32"/>')
-    open(path, "w", encoding="utf-8").write(text.replace(dummy, replacement))
-    print(f"disc layout: CALLO.BIN at LBA {lba}, {sectors} sectors; padding {before} + {after}")
+    parts = []
+    position = ENDING_XA_END
+    for i in range(0, len(files), 3):
+        name, lba, size = files[i], int(files[i + 1], 0), int(files[i + 2], 0)
+        if lba < position:
+            sys.exit(f"{name} at LBA {lba} overlaps what comes before it (ends at {position})")
+        sectors = -(-size // SECTOR)
+        parts.append(f'<dummy sectors="{lba - position}" type="32"/>')
+        parts.append(f'<file name="{name}" type="data"/>')
+        position = lba + sectors
+        print(f"disc layout: {name} at LBA {lba}, {sectors} sectors")
+    after = ENDING_XA_END + ENDING_PADDING - position
+    if after < 0:
+        sys.exit("the files don't fit in the ENDING padding")
+    parts.append(f'<dummy sectors="{after}" type="32"/>')
+    open(path, "w", encoding="utf-8").write(text.replace(dummy, ("\n" + indent).join(parts)))
 
 
 MENU3_VRAM = 0x80102800
@@ -199,14 +213,18 @@ def sectors(build_dir, original_dir):
     print("sector counts: all files unchanged")
 
 
-def verify(image_path, lba, file_path):
-    data = open(file_path, "rb").read()
+def verify(image_path, *files):
+    """Check files (lba, path, ...) are where expected and NULL.DAT didn't move."""
     with open(image_path, "rb") as image:
-        on_disc = b"".join(read_sector(image, lba + i) for i in range(-(-len(data) // SECTOR)))
+        for i in range(0, len(files), 2):
+            lba, file_path = int(files[i], 0), files[i + 1]
+            data = open(file_path, "rb").read()
+            on_disc = b"".join(read_sector(image, lba + j) for j in range(-(-len(data) // SECTOR)))
+            if on_disc[:len(data)] != data:
+                sys.exit(f"{file_path} is not at LBA {lba} in the image")
+            print(f"verified: {os.path.basename(file_path)} at LBA {lba}")
         null_dat = read_sector(image, NULL_DAT_LBA)[:1]
-    if on_disc[:len(data)] != data:
-        sys.exit(f"CALLO.BIN is not at LBA {lba} in the image")
-    print(f"verified: CALLO.BIN at LBA {lba}; NULL.DAT still at {NULL_DAT_LBA} (byte {null_dat.hex()})")
+    print(f"verified: NULL.DAT still at {NULL_DAT_LBA} (byte {null_dat.hex()})")
 
 
 def main():
@@ -219,7 +237,7 @@ def main():
     elif cmd == "initbtl":
         initbtl(args[0], args[1], *map(num, args[2:5]))
     elif cmd == "xml":
-        xml(args[0], num(args[1]), num(args[2]))
+        xml(args[0], *args[1:])
     elif cmd == "sectors":
         sectors(args[0], args[1])
     elif cmd == "menu0":
@@ -227,7 +245,7 @@ def main():
     elif cmd == "menu3":
         menu3(args[0], *map(num, args[1:]))
     elif cmd == "verify":
-        verify(args[0], num(args[1]), args[2])
+        verify(args[0], *args[1:])
     else:
         sys.exit(__doc__)
 
