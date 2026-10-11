@@ -7,6 +7,7 @@ initbtl <INITBTL.PRG> <loader.bin> <loader base> <loader entry> <disc load size>
 xml    <disc xml> <lba> <size>      put ENDING/CALLO.BIN inside the padding before NULL.DAT
 verify <disc image> <lba> <file>    check CALLO.BIN and NULL.DAT sit where expected
 menu3  <MENU3.PRG> <wrapper addresses...>  MENU3 calls -> mod wrappers (see MENU3_CALLS)
+menu0  <MENU0.PRG> <magicRows> <magicCost>  MAGIC menu calls -> mod wrappers (MENU0_CALLS)
 """
 
 import re
@@ -133,23 +134,45 @@ def jal(target):
     return 0x0C000000 | ((target >> 2) & 0x03FFFFFF)
 
 
+# MENU0.PRG (MAGIC menu): each school list's rows and its per-frame MP cost display
+MENU0_CALLS = [
+    (0x801005E0, "vs_mod_magicRows", 0x80102D20, 1),  # warlock list
+    (0x801005E0, "vs_mod_magicRows", 0x80103670, 1),  # shaman list
+    (0x801005E0, "vs_mod_magicRows", 0x801039B4, 1),  # sorcerer list
+    (0x801005E0, "vs_mod_magicRows", 0x80103CF8, 1),  # enchanter list
+    (0x80102884, "vs_mod_magicCost", 0x80102F0C, 1),  # warlock highlighted spell
+    (0x80102884, "vs_mod_magicCost", 0x80103748, 1),  # shaman
+    (0x80102884, "vs_mod_magicCost", 0x80103A8C, 1),  # sorcerer
+    (0x80102884, "vs_mod_magicCost", 0x80103DD0, 1),  # enchanter
+]
+
+
 def menu3(path, *wrappers):
-    """Redirect calls in MENU3.PRG to the mod's wrappers. Only jal instructions change, so the
-    file keeps its size and other patches to it (Zenith's) still apply."""
+    _redirect_calls(path, "MENU3.PRG", MENU3_CALLS, wrappers)
+
+
+def menu0(path, magic_rows, magic_cost):
+    names = {"vs_mod_magicRows": magic_rows, "vs_mod_magicCost": magic_cost}
+    _redirect_calls(path, "MENU0.PRG", MENU0_CALLS, [names[c[1]] for c in MENU0_CALLS])
+
+
+def _redirect_calls(path, label, calls, wrappers):
+    """Redirect calls in a menu overlay to the mod's wrappers. Only jal instructions change, so
+    the file keeps its size and other patches to it (Zenith's) still apply."""
     prg = bytearray(open(path, "rb").read())
-    if len(wrappers) != len(MENU3_CALLS):
-        sys.exit(f"menu3: expected {len(MENU3_CALLS)} wrapper addresses")
-    for (original, name, address, count), wrapper in zip(MENU3_CALLS, wrappers):
+    if len(wrappers) != len(calls):
+        sys.exit(f"{label}: expected {len(calls)} wrapper addresses")
+    for (original, name, address, count), wrapper in zip(calls, wrappers):
         if address is None:
             sites = [MENU3_VRAM + i for i in range(0, len(prg), 4)
                      if struct.unpack_from("<I", prg, i)[0] == jal(original)]
         else:
             sites = [address] if struct.unpack_from("<I", prg, address - MENU3_VRAM)[0] == jal(original) else []
         if len(sites) != count:
-            sys.exit(f"MENU3.PRG: expected {count} jal {original:#x} for {name}, found {len(sites)}")
+            sys.exit(f"{label}: expected {count} jal {original:#x} for {name}, found {len(sites)}")
         for site in sites:
             struct.pack_into("<I", prg, site - MENU3_VRAM, jal(wrapper))
-            print(f"MENU3.PRG: {site:#x} jal {original:#x} -> {name} {wrapper:#x}")
+            print(f"{label}: {site:#x} jal {original:#x} -> {name} {wrapper:#x}")
     open(path, "wb").write(prg)
 
 
@@ -199,6 +222,8 @@ def main():
         xml(args[0], num(args[1]), num(args[2]))
     elif cmd == "sectors":
         sectors(args[0], args[1])
+    elif cmd == "menu0":
+        menu0(args[0], *map(num, args[1:3]))
     elif cmd == "menu3":
         menu3(args[0], *map(num, args[1:]))
     elif cmd == "verify":

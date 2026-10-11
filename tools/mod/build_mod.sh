@@ -91,6 +91,10 @@ make -j8 build/data/MENU/MENU3.PRG
 python3 tools/mod/build_mod.py menu3 build/data/MENU/MENU3.PRG \
     "$(addr "$OUT/callo.elf" vs_mod_itemNavigation)" "$(addr "$OUT/callo.elf" vs_mod_equipMenu)" \
     "$(addr "$OUT/callo.elf" vs_mod_setMenuRows)" "$(addr "$OUT/callo.elf" vs_mod_loadObjectData)"
+# MENU0.PRG (MAGIC menu): her spell choice
+rm -f build/data/MENU/MENU0.PRG
+make -j8 build/data/MENU/MENU0.PRG
+python3 tools/mod/build_mod.py menu0 build/data/MENU/MENU0.PRG     "$(addr "$OUT/callo.elf" vs_mod_magicRows)" "$(addr "$OUT/callo.elf" vs_mod_magicCost)"
 python3 tools/mod/build_mod.py sectors build/data data
 rm -f build/disks/SLUS-01040.bin build/disks/SLUS-01040.cue  # mkpsxiso would wait for an overwrite prompt
 make -j8 image

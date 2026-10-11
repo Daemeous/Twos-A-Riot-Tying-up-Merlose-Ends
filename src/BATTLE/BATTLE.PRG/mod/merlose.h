@@ -762,5 +762,99 @@ void vs_mod_hud(void)
     _renderMiniBar(1, stats->currentMP, stats->maxMP, xy + vs_getXY(0, MINI_HUD_ROW));
     if (stats->risk != 0) {
         _renderMiniBar(2, stats->risk, 100, xy + vs_getXY(0, MINI_HUD_ROW * 2));
+
+/* --- MAGIC menu (MENU0.PRG): choosing her spells ------------------------------------------------
+ * In each school's list her spells are shown in the other font colour, and Square on a spell
+ * gives it to her or takes it back (up to MAX_CALLO_SPELLS; Heal she always has). Each list's
+ * vs_mainmenu_setMenuRows call and its per-frame _setMPCost(highlighted spell) call are
+ * redirected here by tools/mod/build_mod.py menu0. */
+#include <libetc.h>
+
+void vs_battle_playInvalidSfx(void);
+void vs_battle_playMenuSelectSfx(void);
+u_char* vs_battle_getMenuItem(int id);
+
+#define MENU0_SET_MP_COST 0x80102884          /* _setMPCost(spell id, negative: has levels) */
+#define MAINMENU_GET_CONFIRMED_ROW 0x801008B0 /* vs_mainMenu_getConfirmedRow */
+#define MAINMENU_ITEMS_TEXT (*(u_char**)0x801023D4) /* _itemsText: the list's rows */
+#define MAINMENU_ROW_INFO (*(char*)0x801023DD)      /* _subMenuRowInfo */
+#define MAINMENU_PAGE (*(char*)0x801023DE)          /* _subMenuPage */
+#define ROW_SIZE 128       /* _itemsText_t */
+#define ROW_FLAGS 28       /* _itemsText_t.menuRowFlags */
+#define ROW_FONT_COLOR 4   /* row flag: the other font colour */
+#define ROW_INVERT 8       /* row flag that also sets it */
+#define ITEM_FONT_COLOR 10 /* vs_battle_menuItem_t.fontColor */
+#define FIRST_MAGIC_LIST 7 /* list ids: warlock, shaman, sorcerer, enchanter */
+
+static int _calloCasts(int id)
+{
+    return (id == CALLO_HEAL) || _spellChosen(_spellIndex(id));
+}
+
+void vs_mod_magicRows(int rowCount, int rowInfo, char** strings, int* rowTypes)
+{
+    int school = (rowInfo & 0xFF) - FIRST_MAGIC_LIST;
+    int row = 0;
+    int id;
+    int i;
+
+    if ((school >= 0) && (school < 4)) {
+        _initSpellChoice();
+        for (i = 0; i < _schoolSizes[school]; ++i) {
+            id = _schoolSpells[school][i];
+            if (vs_main_actions[id].unlocked) {
+                if (_calloCasts(id)) {
+                    rowTypes[row] |= ROW_FONT_COLOR;
+                }
+                ++row;
+            }
+        }
+    }
+    ((void (*)(int, int, char**, int*))MAINMENU_SET_MENU_ROWS)(
+        rowCount, rowInfo, strings, rowTypes);
+}
+
+void vs_mod_magicCost(int id)
+{
+    vs_battle_actor* callo;
+    int* flags;
+    int index;
+    int chosen;
+    int row;
+
+    ((void (*)(int))MENU0_SET_MP_COST)(id);
+    if (!(vs_main_buttonsPressed.all & PADRleft)) {
+        return;
+    }
+    if (id < 0) {
+        id = -id;
+    }
+    index = _spellIndex(id);
+    _initSpellChoice();
+    chosen = !_spellChosen(index);
+    if ((index < 0) || (id == CALLO_HEAL)
+        || (chosen && (_chosenSpellCount() >= MAX_CALLO_SPELLS))) {
+        vs_battle_playInvalidSfx();
+        return;
+    }
+    _setSpellChosen(index, chosen);
+    vs_battle_playMenuSelectSfx();
+
+    /* Recolour the highlighted row */
+    row = ((int (*)(void))MAINMENU_GET_CONFIRMED_ROW)();
+    if (MAINMENU_ITEMS_TEXT != NULL) {
+        flags = (int*)(MAINMENU_ITEMS_TEXT + row * ROW_SIZE + ROW_FLAGS);
+        if (chosen) {
+            *flags |= ROW_FONT_COLOR;
+        } else {
+            *flags &= ~ROW_FONT_COLOR;
+        }
+        vs_battle_getMenuItem(row - MAINMENU_PAGE + MAINMENU_ROW_INFO * 10)[ITEM_FONT_COLOR] =
+            ((*flags & ROW_INVERT) != 0) | chosen;
+    }
+
+    callo = _calloActor();
+    if (callo != NULL) {
+        _learnSpells(callo->unk3C);
     }
 }
