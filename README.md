@@ -55,8 +55,7 @@ come from the same source:
 - **Patch edition** (the one to use): a few small patches to the original game files plus two
   new files on the disc, so it can go on top of Zenith or the randomizer.
 - **Decomp edition** (experimental, in development): Callo compiled straight into the rebuilt
-  game code. This
-  needs the in-progress decompilation from
+  game code. This needs the in-progress decompilation from
   [rood-reverse PR #186](https://github.com/ser-pounce/rood-reverse/pull/186), and doesn't mix
   with mods that patch the original files.
 
