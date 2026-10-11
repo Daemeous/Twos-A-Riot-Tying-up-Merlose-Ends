@@ -762,6 +762,8 @@ void vs_mod_hud(void)
     _renderMiniBar(1, stats->currentMP, stats->maxMP, xy + vs_getXY(0, MINI_HUD_ROW));
     if (stats->risk != 0) {
         _renderMiniBar(2, stats->risk, 100, xy + vs_getXY(0, MINI_HUD_ROW * 2));
+    }
+}
 
 /* --- MAGIC menu (MENU0.PRG): choosing her spells ------------------------------------------------
  * In each school's list her spells are shown in the other font colour, and Square on a spell
