@@ -44,7 +44,10 @@ static void _giveStartingWeapon(void);
 #define CALLO_WEAPON_MODEL 83    /* Gastraph Bow */
 #define CALLO_WEAPON_MATERIAL 3  /* Bronze */
 
-static const u_char _calloSlots[2] = { 7, 6 };
+/* Her actor slot, in order of preference: room scripts move characters by slot, 7 and 6 least
+ * and 2-4 most (Wine Cellar count), mostly in cutscenes, which she sits out. Rooms with
+ * movable objects can fill 6 and 7 (team 16), hence the others. Never 9: see below. */
+static const u_char _calloSlots[] = { 7, 6, 8, 5, 4, 3, 2 };
 /* She joins once the prologue is over: the progress flag the game also gates loot and the
  * bonus wheel on (set to 3 early in the Wine Cellar). The prologue's cutscene characters need
  * her slots' palette rows (VRAM row 0x16 + slot): sharing them corrupted their textures. */
@@ -73,17 +76,16 @@ void vs_mod_spawnCallo(void)
         return;
     }
 
-    /* An enemy slot (0-1 get player-only handling, creation allows < 10). Room scripts
-     * move cutscene characters by slot and mostly use 2-5 and 8, so taking those made
-     * scripts teleport her. Slot 9 is unusable: a character's palette goes to VRAM row
-     * 0x16 + slot, and row 0x1F (slot 9) holds room objects' alternate palettes. */
-    for (i = 0; i < 2; ++i) {
+    /* An enemy slot (0-1 get player-only handling, creation allows < 10), the first free one
+     * in _calloSlots. Slot 9 is unusable: a character's palette goes to VRAM row 0x16 + slot,
+     * and row 0x1F (slot 9) holds room objects' alternate palettes. */
+    for (i = 0; i < sizeof _calloSlots; ++i) {
         slot = _calloSlots[i];
         if (vs_battle_actors[slot] == NULL) {
             break;
         }
     }
-    if (i >= 2) {
+    if (i >= sizeof _calloSlots) {
         return;
     }
 
