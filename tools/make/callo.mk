@@ -5,10 +5,17 @@
 #
 #   make CALLO=1 callo-image   -> build/disks/SLUS-01040.bin/.cue
 
-CALLO_SOURCES := $(shell grep -rlE 'VS_CALLO|mod/hooks\.h' src --include=*.c)
+CALLO_SOURCES := $(shell grep -rlE 'VS_CALLO|VS_SELECTABLE_ROULETTE|mod/hooks\.h' src --include=*.c)
 
 # Their code depends on the mode, so rebuild them when it changes
 $(patsubst %,$(BUILD)/%.o,$(CALLO_SOURCES)): $(SHIFT_STAMP)
+
+# SELECTABLE_ROULETTE=1 (also part of CALLO=1): the boss bonus wheel doesn't spin; Down/Up
+# choose the bonus and Circle takes it (MENUF.PRG). On its own it keeps the original layout,
+# so MENUF.PRG can go on a disc with the original BATTLE.PRG (patch edition, Zenith).
+ifneq ($(CALLO)$(SELECTABLE_ROULETTE),)
+CPPFLAGS += -DVS_SELECTABLE_ROULETTE
+endif
 
 ifdef CALLO
 

@@ -55,7 +55,7 @@ endif
 
 # Hand-written BATTLE.PRG asm assembles differently with SHIFTCHECK (lui_addr/ori_addr), so
 # rebuild it, and relink everything, whenever the mode changes.
-SHIFT_STAMP := $(BUILD)/shiftcheck.$(if $(SHIFTCHECK),on$(SHIFTPAD)$(if $(CALLO),.callo),off)
+SHIFT_STAMP := $(BUILD)/shiftcheck.$(if $(SHIFTCHECK),on$(SHIFTPAD)$(if $(CALLO),.callo),off)$(if $(SELECTABLE_ROULETTE),.roulette)
 SHIFT_HASM  := $(patsubst %.s,$(BUILD)/%.s.o,$(wildcard src/BATTLE/BATTLE.PRG/*.s))
 
 $(SHIFT_HASM) $(BUILD)/src/BATTLE/BATTLE.PRG/146C.c.o $(BINTARGETS) $(BINTARGETS:=.elf): $(SHIFT_STAMP)
