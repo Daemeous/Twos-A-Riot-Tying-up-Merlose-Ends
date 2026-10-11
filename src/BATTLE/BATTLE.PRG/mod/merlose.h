@@ -369,3 +369,19 @@ int vs_mod_frame(void)
     }
     return result;
 }
+
+/* Room scripts count the enemy team (4) to tell whether a room is cleared (func_8007CF80, from
+ * a script op and the event-condition check). She is on that team, so leave her out of it:
+ * both calls are redirected here by tools/mod/build_mod.py battle. */
+int func_8007CF80(int);
+
+int vs_mod_countTeam(int team)
+{
+    int count = func_8007CF80(team);
+    vs_battle_actor* callo = _calloActor();
+
+    if ((callo != NULL) && (callo->unk1C == team) && (count > 0)) {
+        --count;
+    }
+    return count;
+}

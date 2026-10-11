@@ -76,7 +76,7 @@ LOADER=$(addr "$OUT/loader.elf" vs_mod_loadSystemDat)
 # 3. Patches: INITBTL's SYSTEM.DAT load -> loader; BATTLE.PRG room-spawn return -> mod entry
 INITBTL_SIZE=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/lbas.h)
 python3 tools/mod/build_mod.py initbtl "$INITBTL" "$OUT/loader.bin" "$LOADER_BASE" "$LOADER" "$INITBTL_SIZE"
-python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"
+python3 tools/mod/build_mod.py battle "$PRG" "$ENTRY" "$(addr "$OUT/callo.elf" vs_mod_frame)"     "$(addr "$OUT/callo.elf" vs_mod_countTeam)"
 
 # 4. Disc: CALLO.BIN inside the ENDING padding, then the image
 mkdir -p build/data/ENDING build/disks
