@@ -50,7 +50,8 @@ int _chosenSpellCount(void);
 /* The menu module (menu.c -> ENDING/CALLOMNU.BIN): only menus use it, so it's loaded into the
  * gap between MENU3.PRG/MENU0.PRG's end and the heap (0x8010C000) while they're open. Larger
  * menu overlays reuse that gap, so it's checked (magic + checksum) and reloaded as needed. Its
- * header is the same as CALLO.BIN's: magic, size, then the entry points below, checksum last. */
+ * header is the same as CALLO.BIN's: magic, the size of its code and constants, the entry points
+ * below, then a checksum of that code and constants (its variables change while it runs). */
 #define MENU_MODULE ((u_int*)0x80109800)
 #define MENU_MODULE_MAGIC 0x554E4D43 /* "CMNU" */
 #define MENU_MODULE_LOAD_SIZE 0x2800 /* up to the heap */
