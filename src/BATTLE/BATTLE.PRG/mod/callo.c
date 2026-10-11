@@ -83,10 +83,6 @@ void vs_mod_spawnCallo(void)
     vs_main_inventoryBlade* blade;
     vs_main_inventoryShield* shield;
 
-    /* Test scope: every Wine Cellar room */
-    if (_zoneContext.zndId != 9) { /* Wine Cellar */
-        return;
-    }
     /* An enemy slot (0-1 get player-only handling, creation allows < 10). Room scripts
      * move cutscene characters by slot and mostly use 2-5 and 8, so taking those made
      * scripts teleport her. Slot 9 is unusable: a character's palette goes to VRAM row
