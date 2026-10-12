@@ -9,6 +9,7 @@ nothing.
 usage: patch_image.py <kit dir> <image.bin>   (modifies the image in place)
 """
 
+import hashlib
 import json
 import os
 import struct
@@ -26,8 +27,8 @@ SUBMODE_FORM2 = 0x20
 
 
 class Image:
-    def __init__(self, path):
-        self.f = open(path, "r+b")
+    def __init__(self, path, mode="r+b"):
+        self.f = open(path, mode)
         self.dirty = {}
 
     def sector(self, lba):
@@ -93,18 +94,23 @@ def main():
         lba, size = image.find(path)
         room = -(-size // SECTOR) * SECTOR  # the file's last sector may hold appended code
         for run in runs:
-            original, new = bytes.fromhex(run["original"]), bytes.fromhex(run["new"])
+            new = bytes.fromhex(run["new"])
             if run["offset"] + len(new) > room:
                 problems.append(f"{path}: change at {run['offset']:#x} is past the file's sectors")
                 continue
             current = image.read(lba, run["offset"] + len(new))[run["offset"]:]
+            # Release kits carry a hash of the original bytes instead of the game's own bytes
+            if "original" in run:
+                matches = current == bytes.fromhex(run["original"])
+            else:
+                matches = hashlib.sha1(current).hexdigest() == run["original_sha1"]
             if current == new:
                 already += 1
-            elif current == original:
+            elif matches:
                 changes.append((lba, run["offset"], new, path))
             else:
-                problems.append(f"{path} at {run['offset']:#x}: expected {original.hex()}, found "
-                                f"{current.hex()} (changed by another mod?)")
+                problems.append(f"{path} at {run['offset']:#x}: found {current[:16].hex()}..., "
+                                f"not the original bytes (changed by another mod?)")
     added = []
     for entry in kit["added"]:
         data = open(os.path.join(kit_dir, entry["file"]), "rb").read()
