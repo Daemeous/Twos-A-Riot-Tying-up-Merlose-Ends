@@ -21,15 +21,14 @@ equipment and which of Ashley's spells she may use.
   *VKP Standard Issue*.
 - **Choose her spells.** In the MAGIC menu, **Square** gives the highlighted spell to Merlose or
   takes it back (up to 8).
-- **Friendly targeting.** Ashley's attacks and attack spells can't hit her; his healing,
-  support spells and items can.
+- **Friendly targeting.** Ashley's attacks and single-target attack spells can't hit her, but
+  area spells can catch her; his healing, support spells and items work on her.
 - **Quality of life.** Rooms clear without having to beat her, the STATUS screen shows her
   stats, small HP/MP/RISK bars for her sit under Ashley's, and she catches up if she's left
   behind.
-- **Extras.** Permanent stat-up items always give their maximum (+4).
-
-**In testing** (next release): Merlose sits out cutscenes and the prologue, and the bonus wheel
-after a boss can be chosen instead of spun (**Down/Up** to pick, **Circle** to take it).
+- **Cutscenes.** She steps out for cutscenes and the prologue, and is back when they end.
+- **Extras.** Permanent stat-up items always give their maximum (+4), and the bonus wheel after
+  a boss can be chosen instead of spun (**Down/Up** to pick, **Circle** to take it).
 
 ## Compatibility
 
@@ -43,7 +42,19 @@ after a boss can be chosen instead of spun (**Down/Up** to pick, **Circle** to t
 
 ## Getting it
 
-The mod is built from source against your own disc image. The step-by-step guide is in
+**[Download the latest release](https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends/releases/latest)**
+(Windows 10/11, nothing to install):
+
+1. Extract the zip and copy your Vagrant Story (USA) `.bin` + `.cue` into the extracted folder.
+2. Double-click **Patch Vagrant Story.bat** and answer the questions. (If Windows says "Windows
+   protected your PC", click **More info → Run anyway**.)
+3. Open the new `... + Merlose.cue` in your emulator. Your original image isn't changed.
+
+For Zenith, put its `.ppf` in the same folder and answer **Y** when asked. For the Randomizer,
+randomize first and patch the randomized disc. The README in the zip covers `.chd` files and
+troubleshooting.
+
+To build it from source instead, see
 **[CALLO_MOD.md](https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends/blob/callo-preview/CALLO_MOD.md)**
 on the `callo-preview` branch (Linux, or WSL on Windows).
 
