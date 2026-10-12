@@ -26,7 +26,7 @@ MENU_LIMIT=0x8010C000   # the heap
 MENU_LBA=$((MOD_LBA + 8))  # callo.h MENU_MODULE_LBA
 MENU_MAGIC=0x554E4D43   # "CMNU"
 
-rm -rf "$OUT/kit" "$OUT/original" "$OUT/patched"
+rm -rf "$OUT/kit" "$OUT/original" "$OUT/patched" "$OUT/maxstats"
 mkdir -p "$OUT/original" "$OUT/patched"
 
 # The selectable roulette: MENUF.PRG in the original layout
@@ -80,7 +80,10 @@ s() { addr "$SYMS" "$1"; }
 INITBTL_LOAD=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/lbas.h)
 python3 tools/mod/build_mod.py initbtl "$OUT/patched/INITBTL.PRG" "$OUT/loader.bin" "$LOADER_BASE" \
     "$(addr "$OUT/loader.elf" vs_mod_loadSystemDat)" "$INITBTL_LOAD"
-python3 tools/mod/build_mod.py maxstats "$OUT/patched/BATTLE.PRG" "$(s vs_main_getRand)" \
+# Optional feature (Merlose options.ini): its own copy, so the kit keeps it apart
+mkdir -p "$OUT/maxstats"
+cp data/BATTLE/BATTLE.PRG "$OUT/maxstats/"
+python3 tools/mod/build_mod.py maxstats "$OUT/maxstats/BATTLE.PRG" "$(s vs_main_getRand)" \
     "$(s _increaseStrengthRand)" "$(s _increaseIntelligenceRand)" "$(s _increaseAgilityRand)" \
     "$(s _increaseMaxHpRand)" "$(s _increaseMaxMpRand)"
 python3 tools/mod/build_mod.py battle "$OUT/patched/BATTLE.PRG" "$ENTRY" "$(c vs_mod_frame)" \
@@ -95,6 +98,7 @@ python3 tools/mod/build_mod.py kit "$OUT/kit" \
     BATTLE/INITBTL.PRG "$OUT/original/INITBTL.PRG" "$OUT/patched/INITBTL.PRG" \
     MENU/MENU3.PRG "$OUT/original/MENU3.PRG" "$OUT/patched/MENU3.PRG" \
     MENU/MENU0.PRG "$OUT/original/MENU0.PRG" "$OUT/patched/MENU0.PRG" \
-    MENU/MENUF.PRG "$OUT/original/MENUF.PRG" "$OUT/patched/MENUF.PRG" \
-    "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN"
+    "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN" \
+    @max_stat_items BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats/BATTLE.PRG" \
+    @choosable_bonus_wheel MENU/MENUF.PRG "$OUT/original/MENUF.PRG" "$OUT/patched/MENUF.PRG"
 echo "kit: $OUT/kit"

@@ -7,6 +7,7 @@ embedded Python. The original image is never modified.
 usage: patch_disc.py <folder> [image]   (image: a .cue/.bin dropped onto the .bat)
 """
 
+import configparser
 import os
 import shutil
 import subprocess
@@ -17,6 +18,7 @@ sys.path.insert(0, HERE)
 from patch_image import Image  # noqa: E402
 
 KIT = os.path.join(HERE, "kit")
+OPTIONS = "Merlose options.ini"
 SUFFIX = " + Merlose"
 RAW = 2352
 RAW_EXTS = (".bin", ".img", ".iso")
@@ -33,9 +35,16 @@ def fail(text):
     sys.exit(1)
 
 
+def prompt(text):
+    try:
+        return input(text)
+    except (EOFError, KeyboardInterrupt):
+        fail("Stopped before finishing; nothing was changed.")
+
+
 def ask(question, default=None):
     while True:
-        answer = input(question + " ").strip().lower()
+        answer = prompt(question + " ").strip().lower()
         if not answer and default:
             return default
         if answer[:1] in ("y", "n"):
@@ -100,7 +109,8 @@ def pick(choices):
     for i, (label, _, _) in enumerate(choices, 1):
         say(f"  {i}. {label}")
     while True:
-        answer = input(f"Which one should be patched? Type 1-{len(choices)} and press Enter: ").strip()
+        answer = prompt(f"Which one should be patched? Type 1-{len(choices)} and press Enter: ")
+        answer = answer.strip()
         if answer.isdigit() and 1 <= int(answer) <= len(choices):
             return choices[int(answer) - 1]
 
@@ -138,19 +148,43 @@ def copy_with_progress(src, dst):
     say()
 
 
-def ppf_present(ppf, image_path, samples=200):
-    """True when the image already holds the patch's bytes (e.g. it already has Zenith)."""
+def ppf_found(ppf, image_path):
+    """How many of the patch's changes the image already holds, out of how many. Some but not
+    all: the patch is there, and another mod (e.g. QoL for Zenith) changed parts of it."""
     from apply_ppf import records
-    checked = 0
+    found = total = 0
     with open(image_path, "rb") as image:
         for offset, data in records(ppf):
             image.seek(offset)
-            if image.read(len(data)) != data:
-                return False
-            checked += 1
-            if checked >= samples:
-                break
-    return checked > 0
+            found += image.read(len(data)) == data
+            total += 1
+    return found, total
+
+
+def read_options(folder):
+    """The features to include, from Merlose options.ini (all of them without the file)."""
+    import json
+    features = list(json.load(open(os.path.join(KIT, "patches.json"))).get("features", {}))
+    path = os.path.join(folder, OPTIONS)
+    if not os.path.isfile(path):
+        say(f"No {OPTIONS} in the folder, so every option is on.")
+        return features
+    config = configparser.ConfigParser()
+    try:
+        config.read(path, encoding="utf-8-sig")
+    except configparser.Error as e:
+        fail(f"Couldn't read {OPTIONS}: {e}")
+    chosen = []
+    for name in features:
+        value = config.get("features", name, fallback="yes").strip().lower()
+        if value not in ("yes", "no", "y", "n", "on", "off", "true", "false", "1", "0"):
+            say(f"Note: {name} = {value} in {OPTIONS} isn't yes or no; using yes.")
+            value = "yes"
+        on = value in ("yes", "y", "on", "true", "1")
+        say(f"  {name.replace('_', ' ')}: {'yes' if on else 'no'}")
+        if on:
+            chosen.append(name)
+    return chosen
 
 
 def run(script, *args):
@@ -198,6 +232,8 @@ def main():
     if src_cue == "chd":
         src_bin, src_cue = chd_to_bin(src_bin, os.path.dirname(os.path.abspath(src_bin)))
     say(f"Disc image: {label}")
+    say(f"Options (from {OPTIONS}):")
+    features = read_options(folder)
 
     # Is it Vagrant Story (USA)? (patch_image checks every byte later; this gives a clearer message)
     if os.path.getsize(src_bin) % RAW:
@@ -225,12 +261,13 @@ def main():
         candidate = os.path.join(folder, ppfs[0])
         if open(candidate, "rb").read(5) != b"PPF30":
             say(f"Note: {ppfs[0]} isn't a PPF3 patch; skipped.")
-        elif ppf_present(candidate, src_bin):
-            say(f"{ppfs[0]} is already applied to this disc; it won't be added again.")
+        elif (lambda found, total: found * 2 > total)(*ppf_found(candidate, src_bin)):
+            say(f"{ppfs[0]} is already on this disc; it won't be added again.")
         else:
             say()
             say(f"Found {ppfs[0]} (Zenith?) in the folder.")
-            say("Add it to the new disc as well? Say N if this disc came from the Randomizer.")
+            say("Add it to the new disc as well? Say N if this disc came from the Randomizer or")
+            say("already has the QoL mod (QoL has its own Zenith edition).")
             if ask("Add it? [Y/N]") == "y":
                 ppf = candidate
 
@@ -253,11 +290,12 @@ def main():
         ok = run("apply_ppf.py", ppf, out_bin) == 0
     if ok:
         say("Adding Merlose...")
-        ok = run("patch_image.py", KIT, out_bin) == 0
+        ok = run("patch_image.py", KIT, out_bin, "--features=" + ",".join(features)) == 0
     if not ok:
         os.remove(out_bin)
         fail("Patching failed (see the messages above), so the copy was deleted. Is this the "
-             "USA version of the game, and was any other mod applied after the Randomizer?")
+             "USA version of the game? Other mods (Zenith, QoL, the Randomizer) have to go on "
+             "before this one, never after.")
 
     with open(out_cue, "w", newline="\r\n") as f:
         f.write(f'FILE "{os.path.basename(out_bin)}" BINARY\n'

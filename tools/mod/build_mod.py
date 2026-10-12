@@ -265,11 +265,18 @@ def kit(out_dir, *args):
     """Write the patch kit: every change the mod makes to the game's files (as runs of original
     and new bytes, by path on the disc) plus the files it adds (by sector). Applied to a
     finished image by patch_image.py, after other mods (Zenith, the randomizer), which replace
-    whole files and would undo changes made before them."""
+    whole files and would undo changes made before them.
+    "@name" starts an optional feature: the files after it (until the next "@name") are diffed
+    into features[name], which players can leave out."""
     os.makedirs(out_dir, exist_ok=True)
-    files, added = {}, []
+    core, added, features = {}, [], {}
+    files = core
     i = 0
     while i < len(args):
+        if args[i].startswith("@"):
+            files = features.setdefault(args[i][1:], {})
+            i += 1
+            continue
         if args[i].isdigit():
             lba, path = int(args[i]), args[i + 1]
             shutil.copy(path, os.path.join(out_dir, os.path.basename(path)))
@@ -294,9 +301,11 @@ def kit(out_dir, *args):
             j = k
         files[disc_path] = runs
         i += 3
-        print(f"kit: {disc_path}: {len(runs)} changes, {sum(len(r['new']) // 2 for r in runs)} bytes")
+        group = next((f"{name}: " for name, fs in features.items() if fs is files), "")
+        print(f"kit: {group}{disc_path}: {len(runs)} changes, "
+              f"{sum(len(r['new']) // 2 for r in runs)} bytes")
     with open(os.path.join(out_dir, "patches.json"), "w") as f:
-        json.dump({"files": files, "added": added}, f, indent=1)
+        json.dump({"files": core, "added": added, "features": features}, f, indent=1)
     print(f"kit: {len(added)} added files; written to {out_dir}")
 
 

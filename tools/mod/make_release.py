@@ -37,13 +37,14 @@ def main():
     files = os.path.join(stage, "files")
     os.makedirs(os.path.join(files, "kit"))
 
-    for name in ("Patch Vagrant Story.bat", "README.txt"):
+    for name in ("Patch Vagrant Story.bat", "README.txt", "Merlose options.ini"):
         text(os.path.join(HERE, "release", name), os.path.join(stage, name), version)
     for name in SCRIPTS:
         shutil.copy(os.path.join(HERE, name), files)
 
     kit = json.load(open(os.path.join(kit_dir, "patches.json")))
-    for runs in kit["files"].values():
+    groups = [kit["files"]] + list(kit.get("features", {}).values())
+    for runs in (runs for files in groups for runs in files.values()):
         for run in runs:
             run["original_sha1"] = hashlib.sha1(bytes.fromhex(run.pop("original"))).hexdigest()
     with open(os.path.join(files, "kit", "patches.json"), "w") as f:

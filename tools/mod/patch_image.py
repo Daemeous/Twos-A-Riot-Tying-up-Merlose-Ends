@@ -6,7 +6,11 @@ which would undo changes made before them. Every byte the kit changes is checked
 another mod changed one of them, nothing is written. Running it again on a patched image does
 nothing.
 
-usage: patch_image.py <kit dir> <image.bin>   (modifies the image in place)
+Optional features (the kit's "features") are all applied unless --features lists the ones to
+use (--features= for none). A feature whose bytes another mod already changed (e.g. the QoL
+mod's button swap on the bonus wheel screen) is left out, with a note, rather than failing.
+
+usage: patch_image.py <kit dir> <image.bin> [--features=a,b]   (modifies the image in place)
 """
 
 import hashlib
@@ -81,16 +85,10 @@ class Image:
         self.f.close()
 
 
-def main():
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    kit_dir, image_path = sys.argv[1], sys.argv[2]
-    kit = json.load(open(os.path.join(kit_dir, "patches.json")))
-    image = Image(image_path)
-    problems, already, changes, touched = [], 0, [], set()
-
-    # Check everything first
-    for path, runs in kit["files"].items():
+def check(image, files):
+    """(changes, already, problems) for one group of per-file runs."""
+    changes, already, problems = [], 0, []
+    for path, runs in files.items():
         lba, size = image.find(path)
         room = -(-size // SECTOR) * SECTOR  # the file's last sector may hold appended code
         for run in runs:
@@ -111,6 +109,39 @@ def main():
             else:
                 problems.append(f"{path} at {run['offset']:#x}: found {current[:16].hex()}..., "
                                 f"not the original bytes (changed by another mod?)")
+    return changes, already, problems
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--features=")]
+    if len(args) != 2:
+        sys.exit(__doc__)
+    kit_dir, image_path = args
+    kit = json.load(open(os.path.join(kit_dir, "patches.json")))
+    features = kit.get("features", {})
+    wanted = list(features)
+    for a in sys.argv[1:]:
+        if a.startswith("--features="):
+            wanted = [f for f in a.split("=", 1)[1].split(",") if f]
+    unknown = [f for f in wanted if f not in features]
+    if unknown:
+        sys.exit(f"unknown feature(s) {', '.join(unknown)}; the kit has {', '.join(features)}")
+    image = Image(image_path)
+    touched = set()
+
+    # Check everything first
+    changes, already, problems = check(image, kit["files"])
+    notes = []
+    for name in wanted:
+        f_changes, f_already, f_problems = check(image, features[name])
+        label = name.replace("_", " ")
+        if f_problems:
+            notes.append(f"Left out the {label}: another mod already changes that part of the "
+                         f"game (e.g. the QoL mod's button swap).")
+            continue
+        notes.append(f"Including the {label}.")
+        changes += f_changes
+        already += f_already
     added = []
     for entry in kit["added"]:
         data = open(os.path.join(kit_dir, entry["file"]), "rb").read()
@@ -136,6 +167,8 @@ def main():
         for p in problems:
             print("  " + p)
         sys.exit(1)
+    for note in notes:
+        print(note)
 
     for lba, offset, new, path in changes:
         image.write(lba, offset, new)
