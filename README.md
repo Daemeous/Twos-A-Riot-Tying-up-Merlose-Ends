@@ -27,16 +27,19 @@ equipment and which of Ashley's spells she may use.
   stats, small HP/MP/RISK bars for her sit under Ashley's, and she catches up if she's left
   behind.
 - **Cutscenes.** She steps out for cutscenes and the prologue, and is back when they end.
-- **Extras.** Permanent stat-up items always give their maximum (+4), and the bonus wheel after
-  a boss can be chosen instead of spun (**Down/Up** to pick, **Circle** to take it).
+- **Optional extras** (on by default, switch off in `Merlose options.ini`): permanent stat-up
+  items always give their maximum (+4), and the bonus wheel after a boss can be chosen instead
+  of spun (**Down/Up** to pick, **Circle** to take it).
 
 ## Compatibility
 
 - **Game:** Vagrant Story, USA (SLUS-01040). You need your own copy; nothing from the game is in
   this repository.
-- **[Zenith](https://vszenith.wordpress.com/)** (1.94) and the **Vagrant Story Randomizer**
-  (ChaoticBrave, 0.9.2.0): both supported. Apply the mod last: your disc → Zenith → randomizer
-  → this mod.
+- **[Zenith](https://vszenith.wordpress.com/)** (1.94), the
+  **[QoL mod](https://github.com/eremtsov/rood-reverse/releases)** (eremtsov, v3.1) and the
+  **Vagrant Story Randomizer** (ChaoticBrave, 0.9.2.0): all supported. Apply this mod last:
+  your disc → Zenith → QoL or randomizer → this mod. With QoL's default (Cross confirms)
+  version, the choosable bonus wheel is left out, since QoL changes that screen too.
 - **Saves:** existing saves work; her settings live in save data the game doesn't use.
 - **Hardware:** runs on a standard 2 MB PlayStation; developed in DuckStation.
 
@@ -46,12 +49,14 @@ equipment and which of Ashley's spells she may use.
 (Windows 10/11, nothing to install):
 
 1. Extract the zip and copy your Vagrant Story (USA) `.bin` + `.cue` into the extracted folder.
+   To leave out an extra, set it to `no` in `Merlose options.ini`.
 2. Double-click **Patch Vagrant Story.bat** and answer the questions. (If Windows says "Windows
    protected your PC", click **More info → Run anyway**.)
 3. Open the new `... + Merlose.cue` in your emulator. Your original image isn't changed.
 
-For Zenith, put its `.ppf` in the same folder and answer **Y** when asked. For the Randomizer,
-randomize first and patch the randomized disc. The README in the zip covers `.chd` files and
+For Zenith, put its `.ppf` in the same folder and answer **Y** when asked. For the QoL mod,
+patch your disc with QoL first (its own `.xdelta`, following its instructions), then run the
+patcher on that disc. For the Randomizer, randomize first and patch the randomized disc. The README in the zip covers `.chd` files and
 troubleshooting.
 
 To build it from source instead, see
@@ -79,6 +84,7 @@ Developed with [Claude Code](https://claude.com/claude-code).
   **noprompt** for PR #186.
 - **Zenith**: lead author **the_E_y_Es_o_0**, with collaborators **Valendian** and **Rosto**.
 - **ChaoticBrave**, for the Vagrant Story Randomizer.
+- **eremtsov**, for the QoL mod.
 - Vagrant Story © Square Enix. This is a fan project, not affiliated with or endorsed by Square
   Enix.
 
