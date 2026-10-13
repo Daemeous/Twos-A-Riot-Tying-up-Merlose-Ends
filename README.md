@@ -20,7 +20,7 @@ decompilation and the work of its contributors. Without them, none of this would
 possible. The decompilation has opened up possibilities for Vagrant Story modding that were
 previously far beyond reach, and noprompt's Linux port was the foundation for the Windows one.
 
-I contributed the Windows port, which is now merged into rood-boi, and Two's A Riot has been
+I developed the Windows port, which is now merged into rood-boi, and Two's A Riot has been
 rebuilt to run natively on both Windows and Linux.
 
 Both are experimental, with bugs and rough edges still to iron out. But the game runs, and we
