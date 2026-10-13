@@ -138,7 +138,19 @@ Developed with [Claude Code](https://claude.com/claude-code).
 - **Zenith**: lead author **the_E_y_Es_o_0**, with collaborators **Valendian** and **Rosto**.
 - **ChaoticBrave**, for the Vagrant Story Randomizer.
 - **eremtsov**, for the QoL mod.
+
+
 - Vagrant Story © Square Enix. This is a fan project, not affiliated with or endorsed by Square
   Enix.
 
 Code in this repository is released under [CC0](LICENSE), like rood-reverse.
+
+☕ Support My Work
+
+If you've enjoyed this mod and would like to support me or my other projects, you can buy me a coffee on Ko-fi!
+
+Absolutely no obligation, though, everything I make is because I'm passionate about it, and your enjoyment is already a reward in itself. Please take care of you and yours first!
+
+I want to be clear that I stood on the shoulders of giants to make this. [ser-pounce's rood-reverse](https://github.com/ser-pounce/rood-reverse) and [noprompt's rood-boi](https://github.com/noprompt/rood-boi) are the real MVPs who made this possible. If you'd like to support the people whose work made this project possible, please consider supporting them, too!
+
+[☕ Support me on Ko-fi](https://ko-fi.com/daemeous)
