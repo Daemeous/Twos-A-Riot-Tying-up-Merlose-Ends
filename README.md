@@ -131,6 +131,14 @@ The native PC version comes from the same mod source, compiled into
 
 Developed with [Claude Code](https://claude.com/claude-code).
 
+## Known Issues
+- Merlose is missing from quite a few areas in the game - possibly spawning out of bounds
+- Crash on selecting stat up item - new issue, might be related to code deselecting her as a target
+- Some areas crash on entering
+- She can't sheathe her weapons if you AFK she drains all her PP
+- Spells are no longer enableable or disableable
+- Merlose's equipped gear doesn't repair when the option is selected in a Workship
+
 ## Credits
 
 - **ser-pounce** and the rood-reverse contributors, for the decompilation this is built on.
