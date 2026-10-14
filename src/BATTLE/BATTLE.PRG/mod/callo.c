@@ -462,15 +462,32 @@ void _setSpellChosen(int index, int chosen)
     }
 }
 
+/* Only spells Ashley has learned count towards her limit: the MAGIC menu lists only those, so
+ * a chosen spell he hasn't learned yet (the defaults, early on) could never be taken off. */
 int _chosenSpellCount(void)
 {
     int count = 0;
     int i;
 
     for (i = 0; i < SPELL_COUNT; ++i) {
-        count += _spellChosen(i);
+        if (_spellChosen(i) && ACTION_UNLOCKED(_spellId(i))) {
+            ++count;
+        }
     }
     return count;
+}
+
+/* Choosing a spell in the MAGIC menu makes the choice the player's: the defaults Ashley hasn't
+ * learned yet are dropped, so they can't turn up later on top of the player's 8. */
+void _dropUnlearnedSpells(void)
+{
+    int i;
+
+    for (i = 0; i < SPELL_COUNT; ++i) {
+        if (_spellChosen(i) && !ACTION_UNLOCKED(_spellId(i))) {
+            _setSpellChosen(i, 0);
+        }
+    }
 }
 
 /* Where spells go in her action table (limb * 4 + slot): not her arms (limbs 0 and 1, which

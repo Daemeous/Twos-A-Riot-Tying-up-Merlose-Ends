@@ -30,6 +30,31 @@ vs_battle_actor* _calloActor(void)
  * copied back to the inventory when the menu opens (vs_mainMenu_initInventory). Do the same
  * for her, but only where the inventory slot still holds that item per her loadout: her items
  * can be dropped or disassembled while she wears them, and the slot reused. */
+/* A workshop repair changes the inventory copy's DP/PP while she wears the item. What this
+ * function last wrote there is remembered: if the inventory value has changed since, it was
+ * changed outside (a repair), so she takes it before the copy below would put her worn value
+ * back over it. Otherwise her values win (wear and PP use in battle). */
+enum { SAVED_BLADE_DP, SAVED_BLADE_PP, SAVED_SHIELD_DP, SAVED_SHIELD_PP, SAVED_ARMOR_DP };
+static u_short _savedDurability[SAVED_ARMOR_DP + 6] = { 0 }; /* initialised: .data, aligned (see callo.c) */
+static u_char _savedValid[SAVED_ARMOR_DP + 6];
+
+static void _pullRepair(int which, u_short* live, u_short* liveTotal, u_short* inventory)
+{
+    if (_savedValid[which] && (*inventory != _savedDurability[which])) {
+        *live = *inventory;
+        if (liveTotal != NULL) {
+            *liveTotal = *inventory;
+        }
+    }
+}
+
+/* After the copy: what the inventory now holds */
+static void _noteSaved(int which, u_short value)
+{
+    _savedDurability[which] = value;
+    _savedValid[which] = 1;
+}
+
 void _saveCalloGear(vs_battle_actor* callo)
 {
     u_char* loadout = LOADOUT;
@@ -47,19 +72,34 @@ void _saveCalloGear(vs_battle_actor* callo)
         weapon = &vs_main_inventory.weapons[slot - 1];
         if ((weapon->blade != 0)
             && (vs_main_inventory.blades[weapon->blade - 1].id == stats->weapon.blade.id)) {
+            _pullRepair(SAVED_BLADE_DP, &stats->weapon.blade.currentDp, &stats->weapon.currentDp,
+                &vs_main_inventory.blades[weapon->blade - 1].currentDp);
+            _pullRepair(SAVED_BLADE_PP, &stats->weapon.blade.currentPp, &stats->weapon.currentPp,
+                &vs_main_inventory.blades[weapon->blade - 1].currentPp);
             vs_battle_copyUiWeaponStats(weapon, &stats->weapon);
+            _noteSaved(SAVED_BLADE_DP, vs_main_inventory.blades[weapon->blade - 1].currentDp);
+            _noteSaved(SAVED_BLADE_PP, vs_main_inventory.blades[weapon->blade - 1].currentPp);
         }
     }
     slot = stats->shield.index;
     if ((slot != 0) && (slot <= 8) && (loadout[loadoutShield] == slot)
         && (vs_main_inventory.shields[slot - 1].base.id == stats->shield.base.id)) {
+        _pullRepair(SAVED_SHIELD_DP, &stats->shield.base.currentDp, &stats->shield.currentDp,
+            &vs_main_inventory.shields[slot - 1].base.currentDp);
+        _pullRepair(SAVED_SHIELD_PP, &stats->shield.base.currentPp, &stats->shield.currentPp,
+            &vs_main_inventory.shields[slot - 1].base.currentPp);
         vs_battle_copyUiShieldStats(&vs_main_inventory.shields[slot - 1], &stats->shield);
+        _noteSaved(SAVED_SHIELD_DP, vs_main_inventory.shields[slot - 1].base.currentDp);
+        _noteSaved(SAVED_SHIELD_PP, vs_main_inventory.shields[slot - 1].base.currentPp);
     }
     for (i = 0; i < 6; ++i) {
         slot = stats->limbs[i].armor.index;
         if ((slot != 0) && (slot <= 16) && (loadout[loadoutArmor + i * 2] == slot)
             && (vs_main_inventory.armor[slot - 1].id == stats->limbs[i].armor.armor.id)) {
+            _pullRepair(SAVED_ARMOR_DP + i, &stats->limbs[i].armor.armor.currentDp,
+                &stats->limbs[i].armor.currentDp, &vs_main_inventory.armor[slot - 1].currentDp);
             vs_battle_copyUiArmorStats(&vs_main_inventory.armor[slot - 1], &stats->limbs[i].armor);
+            _noteSaved(SAVED_ARMOR_DP + i, vs_main_inventory.armor[slot - 1].currentDp);
         }
     }
     slot = stats->accessory.index;
@@ -346,6 +386,46 @@ static int _farFromAshley(void)
 
 static u_char _gearSaveTimer;
 
+/* Her weapon follows the fight: drawn while a hostile enemy (team 4, alive) is in the room,
+ * otherwise drawn or put away as Ashley's is. A drawn weapon loses PP every few seconds and slows
+ * HP/MP regen (the per-actor upkeep in 146C.c), and she spawns with it drawn (enemy team), so a
+ * new spawn is checked right away. func_8007C0AC(id, 2) toggles it with the animation. */
+#define WEAPON_CHECK_INTERVAL 15 /* frames */
+void func_8007C0AC(int, int);
+
+static u_char _weaponTimer;
+static vs_battle_actor* _weaponActor; /* the spawn last checked */
+
+static int _hostileNearby(void)
+{
+    vs_battle_actor* actor;
+    int i;
+
+    for (i = 1; i < 16; ++i) {
+        actor = vs_battle_actors[i];
+        if ((i == _calloSlot) || (actor == NULL) || (actor->unk1C != 4) || (actor->unk3C == NULL)) {
+            continue;
+        }
+        if (actor->unk3C->currentHP > 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void _updateWeaponDrawn(vs_battle_actor* callo)
+{
+    int want;
+
+    if (callo->unk3C->currentHP == 0) {
+        return;
+    }
+    want = _hostileNearby() ? 1 : (vs_battle_actors[0]->weaponDrawn & 1);
+    if (want != (callo->weaponDrawn & 1)) {
+        func_8007C0AC(_calloSlot, 2);
+    }
+}
+
 int vs_mod_frame(void)
 {
     int result = func_80088554();
@@ -385,6 +465,13 @@ int vs_mod_frame(void)
     if (_respawnPending && !D_800EB9AF) {
         _respawnPending = 0;
         _respawnCallo();
+    }
+    callo = _calloActor();
+    if ((callo != NULL) && !D_800EB9AF && !_unskipPending && (D_800F4538[_calloSlot] != NULL)
+        && ((callo != _weaponActor) || (++_weaponTimer >= WEAPON_CHECK_INTERVAL))) {
+        _weaponTimer = 0;
+        _weaponActor = callo;
+        _updateWeaponDrawn(callo);
     }
     /* The prologue ended in this room (callo.c _lateJoin): join now, outside its scene */
     if (_lateJoin && !D_800EB9AF && !_awayForScene && (_calloActor() == NULL)
