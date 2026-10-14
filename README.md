@@ -131,13 +131,37 @@ The native PC version comes from the same mod source, compiled into
 
 Developed with [Claude Code](https://claude.com/claude-code).
 
-## Known Issues
-- Merlose is missing from quite a few areas in the game - possibly spawning out of bounds
-- Crash on selecting stat up item - new issue, might be related to code deselecting her as a target
-- Some areas crash on entering
-- She can't sheathe her weapons if you AFK she drains all her PP
-- Spells are no longer enableable or disableable
-- Merlose's equipped gear doesn't repair when the option is selected in a Workship
+## Update (14 October)
+
+Most of the known issues are fixed. Download the latest
+[PlayStation patcher](https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends/releases/latest)
+and patch your original disc again, or run the
+[Windows/Linux builder](https://github.com/Daemeous/rood-boi/releases/latest) again to update.
+
+- **Stat-up items** no longer crash the game with Zenith. `max_stat_items` in
+  `Merlose options.ini` is now a choice: `4` (always +4), `zenith` (Zenith's best roll) or `no`.
+- **Merlose appears where she was missing:** the Wine Cellar's first room, and on PC, rooms with
+  no enemies (workshops, small rooms, the first room of Snowfly Forest).
+- **Spells** can be changed again (unlearned default spells no longer fill her list).
+- **Workshop repairs** fix her gear too.
+- **Her weapon** is drawn when enemies are around and otherwise follows Ashley's, so it no longer
+  drains PP out of combat.
+- **Jumping** uses her own jump and landing poses.
+- **Staves:** she can equip them now, for a caster Merlose with their big INT bonus.
+- **PC (rood-boi) fixes**, also sent to rood-boi:
+  - saves are kept on Windows (they were silently lost after the first save)
+  - no more crash entering the Lamenting Mother's room
+  - a crash guard for spell effects (seen with a Hellhound's Fire Breath)
+
+## Known issues
+
+- With a staff she uses her bare-hands animations, so the staff isn't shown while she attacks.
+
+## Not yet playtested
+
+- The later parts of the game. Some rooms there may still crash on entry or be missing
+  Merlose, so please report any you find on the
+  [Issues](https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends/issues) page.
 
 ## Credits
 
