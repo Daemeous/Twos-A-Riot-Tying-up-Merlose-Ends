@@ -395,6 +395,7 @@ void func_8007C0AC(int, int);
 
 static u_char _weaponTimer;
 static vs_battle_actor* _weaponActor; /* the spawn last checked */
+static u_char _ashleyDrawn;           /* his weapon at the last check: a change is checked at once */
 
 static int _hostileNearby(void)
 {
@@ -420,7 +421,8 @@ static void _updateWeaponDrawn(vs_battle_actor* callo)
     if (callo->unk3C->currentHP == 0) {
         return;
     }
-    want = _hostileNearby() ? 1 : (vs_battle_actors[0]->weaponDrawn & 1);
+    _ashleyDrawn = vs_battle_actors[0]->weaponDrawn & 1;
+    want = _hostileNearby() ? 1 : _ashleyDrawn;
     if (want != (callo->weaponDrawn & 1)) {
         func_8007C0AC(_calloSlot, 2);
     }
@@ -468,7 +470,8 @@ int vs_mod_frame(void)
     }
     callo = _calloActor();
     if ((callo != NULL) && !D_800EB9AF && !_unskipPending && (D_800F4538[_calloSlot] != NULL)
-        && ((callo != _weaponActor) || (++_weaponTimer >= WEAPON_CHECK_INTERVAL))) {
+        && ((callo != _weaponActor) || ((vs_battle_actors[0]->weaponDrawn & 1) != _ashleyDrawn)
+            || (++_weaponTimer >= WEAPON_CHECK_INTERVAL))) {
         _weaponTimer = 0;
         _weaponActor = callo;
         _updateWeaponDrawn(callo);
