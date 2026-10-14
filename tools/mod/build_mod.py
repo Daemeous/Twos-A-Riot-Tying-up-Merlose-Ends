@@ -36,6 +36,8 @@ BATTLE_CALLS = [
     (0x8007BD8C, "vs_mod_cutsceneMode", [0x800B92DC]),
     # The animation lookup: Merlose's jump/landing slots are remapped to her own poses
     (0x800AD494, "vs_mod_animLookup", 12),  # 9 in C, 3 in asm
+    # Her animation set at creation: staves use her bare-hands set
+    (0x800771E0, "vs_mod_animSetLoad", 1),
 ]
 INITBTL_VRAM = 0x800F9800
 DISK_LOAD_FILE = 0x8004493C    # vs_main_diskLoadFile

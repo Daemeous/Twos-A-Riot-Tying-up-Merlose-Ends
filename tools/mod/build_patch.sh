@@ -91,7 +91,7 @@ for mode in four:vs_mod_fourRoll best:vs_mod_maxRoll; do
         "$(s _increaseAgilityRand)" "$(s _increaseMaxHpRand)" "$(s _increaseMaxMpRand)"
 done
 python3 tools/mod/build_mod.py battle "$OUT/patched/BATTLE.PRG" "$ENTRY" "$(c vs_mod_frame)" \
-    "$(c vs_mod_countTeam)" "$(c vs_mod_hud)" "$(c vs_mod_targetStatus)" "$(c vs_mod_cutsceneMode)" "$(c vs_mod_animLookup)"
+    "$(c vs_mod_countTeam)" "$(c vs_mod_hud)" "$(c vs_mod_targetStatus)" "$(c vs_mod_cutsceneMode)" "$(c vs_mod_animLookup)" "$(c vs_mod_animSetLoad)"
 python3 tools/mod/build_mod.py menu3 "$OUT/patched/MENU3.PRG" "$(c vs_mod_itemNavigation)" \
     "$(c vs_mod_equipMenu)" "$(c vs_mod_setMenuRows)" "$(c vs_mod_loadObjectData)"
 python3 tools/mod/build_mod.py menu0 "$OUT/patched/MENU0.PRG" "$(c vs_mod_magicRows)" "$(c vs_mod_magicCost)"
