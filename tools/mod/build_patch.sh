@@ -26,7 +26,7 @@ MENU_LIMIT=0x8010C000   # the heap
 MENU_LBA=$((MOD_LBA + 8))  # callo.h MENU_MODULE_LBA
 MENU_MAGIC=0x554E4D43   # "CMNU"
 
-rm -rf "$OUT/kit" "$OUT/original" "$OUT/patched" "$OUT/maxstats"
+rm -rf "$OUT/kit" "$OUT/original" "$OUT/patched" "$OUT"/maxstats*
 mkdir -p "$OUT/original" "$OUT/patched"
 
 # The selectable roulette: MENUF.PRG in the original layout
@@ -80,12 +80,16 @@ s() { addr "$SYMS" "$1"; }
 INITBTL_LOAD=$(awk '/define VS_INITBTL_PRG_SIZE/ {print $3}' build/src/include/lbas.h)
 python3 tools/mod/build_mod.py initbtl "$OUT/patched/INITBTL.PRG" "$OUT/loader.bin" "$LOADER_BASE" \
     "$(addr "$OUT/loader.elf" vs_mod_loadSystemDat)" "$INITBTL_LOAD"
-# Optional feature (Merlose options.ini): its own copy, so the kit keeps it apart
-mkdir -p "$OUT/maxstats"
-cp data/BATTLE/BATTLE.PRG "$OUT/maxstats/"
-python3 tools/mod/build_mod.py maxstats "$OUT/maxstats/BATTLE.PRG" "$(s vs_main_getRand)" \
-    "$(s _increaseStrengthRand)" "$(s _increaseIntelligenceRand)" "$(s _increaseAgilityRand)" \
-    "$(s _increaseMaxHpRand)" "$(s _increaseMaxMpRand)"
+# Optional features (Merlose options.ini max_stat_items = 4 / zenith): their own copies, so
+# the kit keeps them apart. 4: vs_mod_fourRoll (+4 with or without Zenith); zenith:
+# vs_mod_maxRoll (the best roll of the active rules: Zenith's +2/+3, the original's +4).
+for mode in four:vs_mod_fourRoll best:vs_mod_maxRoll; do
+    mkdir -p "$OUT/maxstats_${mode%%:*}"
+    cp data/BATTLE/BATTLE.PRG "$OUT/maxstats_${mode%%:*}/"
+    python3 tools/mod/build_mod.py maxstats "$OUT/maxstats_${mode%%:*}/BATTLE.PRG" "$(s vs_main_getRand)" \
+        "$(c "${mode#*:}")" "$(s _increaseStrengthRand)" "$(s _increaseIntelligenceRand)" \
+        "$(s _increaseAgilityRand)" "$(s _increaseMaxHpRand)" "$(s _increaseMaxMpRand)"
+done
 python3 tools/mod/build_mod.py battle "$OUT/patched/BATTLE.PRG" "$ENTRY" "$(c vs_mod_frame)" \
     "$(c vs_mod_countTeam)" "$(c vs_mod_hud)" "$(c vs_mod_targetStatus)" "$(c vs_mod_cutsceneMode)"
 python3 tools/mod/build_mod.py menu3 "$OUT/patched/MENU3.PRG" "$(c vs_mod_itemNavigation)" \
@@ -99,6 +103,7 @@ python3 tools/mod/build_mod.py kit "$OUT/kit" \
     MENU/MENU3.PRG "$OUT/original/MENU3.PRG" "$OUT/patched/MENU3.PRG" \
     MENU/MENU0.PRG "$OUT/original/MENU0.PRG" "$OUT/patched/MENU0.PRG" \
     "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN" \
-    @max_stat_items BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats/BATTLE.PRG" \
+    @max_stat_items BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats_four/BATTLE.PRG" \
+    @max_stat_items_zenith BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats_best/BATTLE.PRG" \
     @choosable_bonus_wheel MENU/MENUF.PRG "$OUT/original/MENUF.PRG" "$OUT/patched/MENUF.PRG"
 echo "kit: $OUT/kit"

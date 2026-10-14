@@ -59,6 +59,9 @@ extern u_char _awayForScene; /* merlose.h */
  * packs uninitialised (.bss) statics byte by byte, as ASPSX did, so an int there can land on
  * an odd address (DuckStation then rounds the access down onto a neighbouring variable). */
 int _calloSlot = 0; /* where she last spawned (0: not yet) */
+/* The room loaded during the prologue: the Wine Cellar's first room sets the flag in its
+ * opening scene, after the load, so she joins there once it is set (vs_mod_frame). */
+u_char _lateJoin;
 
 void vs_mod_spawnCallo(void)
 {
@@ -72,7 +75,12 @@ void vs_mod_spawnCallo(void)
     vs_main_inventoryBlade* blade;
     vs_main_inventoryShield* shield;
 
-    if ((vs_battle_getStateFlag(PROGRESS_FLAG) < PROLOGUE_OVER) || _awayForScene) {
+    _lateJoin = 0;
+    if (vs_battle_getStateFlag(PROGRESS_FLAG) < PROLOGUE_OVER) {
+        _lateJoin = 1;
+        return;
+    }
+    if (_awayForScene) {
         return;
     }
 
@@ -760,5 +768,24 @@ static char _merloseRow[] = "MERLOSE\0";
 static char _merloseRowDesc[] = "Equip|>6|Merlose\0";
 static char _merloseRowAbsent[] = "Merlose|>6|is|>6|not|>6|here\0";
 #pragma vsstring(end)
+
+#ifndef VS_CALLO
+/* Patch edition, max_stat_items: the stat-up items' vs_main_getRand(n) calls come here
+ * (tools/mod/build_mod.py maxstats) and get the largest roll. It stays a call: Zenith's hook
+ * after it returns through the call's ra (addiu ra, ra, 16; jr ra), and with Zenith's own
+ * roll (getRand(2) plus 1 or 2) this gives Zenith's maximum. */
+int vs_mod_maxRoll(int n) { return n - 1; }
+
+/* max_stat_items = 4: always +4, Zenith too. Zenith rolls getRand(2) and adds 1, or 2 once its
+ * counter at 0x800616C8 reaches 351 (its hook at 0x800E8804); the original rolls getRand(4)
+ * and adds 1. */
+int vs_mod_fourRoll(int n)
+{
+    if (n != 2) {
+        return 3;
+    }
+    return (*(volatile u_short*)0x800616C8 < 351) ? 3 : 2;
+}
+#endif
 
 #include "merlose.h"

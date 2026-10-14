@@ -37,9 +37,12 @@ Tip: you can also drag your .cue (or .bin) onto the .bat file.
 
 OPTIONS
 -------
-"Merlose options.ini" lets you leave out the extras. Change "yes" to
-"no", save, and run the .bat again on your ORIGINAL disc image:
-* max_stat_items: permanent stat-up items always give +4.
+"Merlose options.ini" lets you choose the extras. Change a value, save,
+and run the .bat again on your ORIGINAL disc image:
+* max_stat_items: what permanent stat-up items give.
+    4      always +4, even with Zenith
+    zenith Zenith's best roll (+2, later +3), or +4 without Zenith
+    no     the game's own random roll
 * choosable_bonus_wheel: pick the bonus wheel reward after a boss
   (Down/Up, then Circle) instead of spinning for it.
 Merlose herself is always included.

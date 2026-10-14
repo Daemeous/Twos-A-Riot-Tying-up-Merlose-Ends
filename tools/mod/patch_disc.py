@@ -161,29 +161,37 @@ def ppf_found(ppf, image_path):
     return found, total
 
 
+# Option -> {value: kit features}; the first value is the default. Each option picks one.
+YES, NO = ("yes", "y", "on", "true", "1"), ("no", "n", "off", "false", "0")
+CHOICES = {
+    "max_stat_items": {"4": ["max_stat_items"], "zenith": ["max_stat_items_zenith"], "no": []},
+    "choosable_bonus_wheel": {"yes": ["choosable_bonus_wheel"], "no": []},
+}
+
+
 def read_options(folder):
-    """The features to include, from Merlose options.ini (all of them without the file)."""
-    import json
-    features = list(json.load(open(os.path.join(KIT, "patches.json"))).get("features", {}))
+    """The kit features to include, from Merlose options.ini (the defaults without it)."""
     path = os.path.join(folder, OPTIONS)
-    if not os.path.isfile(path):
-        say(f"No {OPTIONS} in the folder, so every option is on.")
-        return features
     config = configparser.ConfigParser()
-    try:
-        config.read(path, encoding="utf-8-sig")
-    except configparser.Error as e:
-        fail(f"Couldn't read {OPTIONS}: {e}")
+    if os.path.isfile(path):
+        try:
+            config.read(path, encoding="utf-8-sig")
+        except configparser.Error as e:
+            fail(f"Couldn't read {OPTIONS}: {e}")
+    else:
+        say(f"No {OPTIONS} in the folder, so every option has its default.")
     chosen = []
-    for name in features:
-        value = config.get("features", name, fallback="yes").strip().lower()
-        if value not in ("yes", "no", "y", "n", "on", "off", "true", "false", "1", "0"):
-            say(f"Note: {name} = {value} in {OPTIONS} isn't yes or no; using yes.")
-            value = "yes"
-        on = value in ("yes", "y", "on", "true", "1")
-        say(f"  {name.replace('_', ' ')}: {'yes' if on else 'no'}")
-        if on:
-            chosen.append(name)
+    for name, values in CHOICES.items():
+        default = next(iter(values))
+        value = config.get("features", name, fallback=default).split(";")[0].strip().lower()
+        if value not in values:
+            # yes/no spellings: yes means the default choice
+            value = default if value in YES else "no" if value in NO else None
+        if value is None:
+            value = default
+            say(f"Note: {name} in {OPTIONS} should be one of {', '.join(values)}; using {default}.")
+        say(f"  {name.replace('_', ' ')}: {value}")
+        chosen += values[value]
     return chosen
 
 

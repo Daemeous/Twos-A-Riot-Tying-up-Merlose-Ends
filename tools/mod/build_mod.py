@@ -105,18 +105,19 @@ def battle(prg_path, entry, frame, *wrappers):
     print(f"BATTLE.PRG: {returns[0]:#x} -> j {entry:#x}; {UPKEEP_CALL:#x} -> jal {frame:#x}")
 
 
-def maxstats(prg_path, get_rand, *functions):
+def maxstats(prg_path, get_rand, max_roll, *functions):
     """Permanent stat-up items (_increase*Rand: STR/INT/AGI/max HP/max MP) add
-    vs_main_getRand(4) + 1, i.e. 1-4. Replace that call in each with `li v0, 3` so they always
-    give the maximum, 4. (The delay slot only sets the call's argument; harmless.)"""
+    vs_main_getRand(4) + 1, i.e. 1-4. Redirect that call in each to the mod's vs_mod_maxRoll,
+    which returns the largest roll, so they always give the maximum, 4. It must stay a call:
+    Zenith hooks these functions after it and returns through the call's ra."""
     prg = bytearray(open(prg_path, "rb").read())
-    jal = 0x0C000000 | ((get_rand >> 2) & 0x03FFFFFF)
+    call = jal(get_rand)
     for start in functions:
         sites = [a for a in range(start, start + 0x40, 4)
-                 if struct.unpack_from("<I", prg, a - VRAM)[0] == jal]
+                 if struct.unpack_from("<I", prg, a - VRAM)[0] == call]
         if len(sites) != 1:
             sys.exit(f"maxstats: expected one vs_main_getRand call in {start:#x}, found {len(sites)}")
-        struct.pack_into("<I", prg, sites[0] - VRAM, 0x24020003)  # addiu v0, zero, 3
+        struct.pack_into("<I", prg, sites[0] - VRAM, jal(max_roll))
         print(f"BATTLE.PRG: {sites[0]:#x} stat-up roll -> always 4")
     open(prg_path, "wb").write(prg)
 
