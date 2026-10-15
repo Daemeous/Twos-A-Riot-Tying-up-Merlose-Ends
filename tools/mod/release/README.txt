@@ -20,9 +20,8 @@ HOW TO PATCH
    (Don't run anything from inside the zip window.)
 2. Copy your Vagrant Story .bin and .cue into the extracted folder,
    next to "Patch Vagrant Story.bat".
-   (Optional: open "Merlose options.ini" in Notepad to switch extras
-   off, see OPTIONS below.)
-3. Double-click "Patch Vagrant Story.bat".
+3. Double-click "Patch Vagrant Story.bat". It starts by asking which
+   extras you want (see OPTIONS below).
    If Windows says "Windows protected your PC", click "More info",
    then "Run anyway". (It's a plain text file; you can open it in
    Notepad to see what it does.)
@@ -37,15 +36,18 @@ Tip: you can also drag your .cue (or .bin) onto the .bat file.
 
 OPTIONS
 -------
-"Merlose options.ini" lets you choose the extras. Change a value, save,
-and run the .bat again on your ORIGINAL disc image:
-* max_stat_items: what permanent stat-up items give.
-    4      always +4, even with Zenith
-    zenith Zenith's best roll (+2, later +3), or +4 without Zenith
-    no     the game's own random roll
-* choosable_bonus_wheel: pick the bonus wheel reward after a boss
-  (Down/Up, then Circle) instead of spinning for it.
-Merlose herself is always included.
+The patcher starts by asking which extras you want:
+* Stat-up items: what permanent stat-up items give.
+    1. always +4, even with Zenith
+    2. Zenith's best roll (+2, later +3), or +4 without Zenith
+    3. the game's own random roll
+* Bonus wheel: with this, the bonus wheel after a boss does NOT spin:
+  you pick the reward yourself (Down/Up, then Circle). If you're not
+  sure, answer N.
+Merlose herself is always included. Your answers are remembered (in
+"Merlose options.ini"): the next run shows them and asks whether to
+keep them. To change them, answer N there and run the .bat again on
+your ORIGINAL disc image.
 
 
 WANT ZENITH TOO?
@@ -101,7 +103,7 @@ IF SOMETHING GOES WRONG
 WHAT'S IN THIS FOLDER
 ---------------------
 Patch Vagrant Story.bat   starts the patcher
-Merlose options.ini       which extras to include
+Merlose options.ini       your answers from the last run (made by the patcher)
 files\                    the patcher (Python scripts) and the mod itself
 files\python\             an official Python (python.org), so you don't
                           need to install one

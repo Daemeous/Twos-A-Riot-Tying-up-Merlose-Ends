@@ -37,7 +37,8 @@ def main():
     files = os.path.join(stage, "files")
     os.makedirs(os.path.join(files, "kit"))
 
-    for name in ("Patch Vagrant Story.bat", "README.txt", "Merlose options.ini"):
+    # (No options file: the patcher asks for the extras and writes "Merlose options.ini" itself.)
+    for name in ("Patch Vagrant Story.bat", "README.txt"):
         text(os.path.join(HERE, "release", name), os.path.join(stage, name), version)
     for name in SCRIPTS:
         shutil.copy(os.path.join(HERE, name), files)

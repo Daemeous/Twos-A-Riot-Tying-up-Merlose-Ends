@@ -169,30 +169,81 @@ CHOICES = {
 }
 
 
-def read_options(folder):
-    """The kit features to include, from Merlose options.ini (the defaults without it)."""
+STAT_ITEMS = [  # (value, what the player reads)
+    ("4", "always +4, even with Zenith"),
+    ("zenith", "the best roll of the rules in play: +2 (later +3) with Zenith, +4 without it"),
+    ("no", "the game's own random roll (unchanged)"),
+]
+SAVED_HEADER = """; Two's A Riot - your choices
+; The patcher asks which extras you want when it starts and remembers your answers here.
+; Merlose herself is always included.
+"""
+
+
+def saved_options(folder):
+    """The answers the last run saved in Merlose options.ini ({} without a complete set)."""
     path = os.path.join(folder, OPTIONS)
+    if not os.path.isfile(path):
+        return {}
     config = configparser.ConfigParser()
-    if os.path.isfile(path):
-        try:
-            config.read(path, encoding="utf-8-sig")
-        except configparser.Error as e:
-            fail(f"Couldn't read {OPTIONS}: {e}")
-    else:
-        say(f"No {OPTIONS} in the folder, so every option has its default.")
-    chosen = []
+    try:
+        config.read(path, encoding="utf-8-sig")
+    except configparser.Error:
+        return {}
+    saved = {}
     for name, values in CHOICES.items():
-        default = next(iter(values))
-        value = config.get("features", name, fallback=default).split(";")[0].strip().lower()
+        value = config.get("features", name, fallback="").split(";")[0].strip().lower()
         if value not in values:
-            # yes/no spellings: yes means the default choice
-            value = default if value in YES else "no" if value in NO else None
+            # yes/no spellings: yes means the first choice
+            value = next(iter(values)) if value in YES else "no" if value in NO else None
         if value is None:
-            value = default
-            say(f"Note: {name} in {OPTIONS} should be one of {', '.join(values)}; using {default}.")
-        say(f"  {name.replace('_', ' ')}: {value}")
-        chosen += values[value]
-    return chosen
+            return {}
+        saved[name] = value
+    return saved
+
+
+def describe(options):
+    stat = dict(STAT_ITEMS)[options["max_stat_items"]]
+    say(f"  stat-up items: {stat}")
+    say("  bonus wheel after a boss: " + ("you choose the reward (it doesn't spin)"
+                                         if options["choosable_bonus_wheel"] == "yes" else "spins as usual"))
+
+
+def choose_options(folder):
+    """The kit features to include: asked every time (nothing is chosen for the player); the
+    answers are remembered in Merlose options.ini, and the next run offers to keep them."""
+    saved = saved_options(folder)
+    if saved:
+        say("Last time you chose:")
+        describe(saved)
+        if ask("Keep these choices? [Y/N]") == "y":
+            say()
+            return [f for name, value in saved.items() for f in CHOICES[name][value]]
+        say()
+    options = {}
+    say("Permanent stat-up items (the ones that raise STR, INT, AGL, max HP or max MP for good)")
+    say("normally give a random amount. Which do you want?")
+    for i, (_, text) in enumerate(STAT_ITEMS, 1):
+        say(f"  {i}. {text}")
+    while "max_stat_items" not in options:
+        answer = prompt(f"Type 1-{len(STAT_ITEMS)}, then press Enter: ").strip()
+        if answer.isdigit() and 1 <= int(answer) <= len(STAT_ITEMS):
+            options["max_stat_items"] = STAT_ITEMS[int(answer) - 1][0]
+    say()
+    say("Bonus wheel: after a boss, the bonus wheel normally spins and stops on a reward.")
+    say("With this, it DOESN'T spin: you choose the reward yourself with Down/Up and Circle.")
+    say("(If you're not sure, answer N: the game then plays as you know it.)")
+    options["choosable_bonus_wheel"] = "yes" if ask("Choose the reward instead of spinning? [Y/N]") == "y" else "no"
+    say()
+    try:
+        with open(os.path.join(folder, OPTIONS), "w", encoding="utf-8", newline="\r\n") as f:
+            f.write(SAVED_HEADER + "\n[features]\n"
+                    + "".join(f"{name} = {value}\n" for name, value in options.items()))
+    except OSError:
+        pass  # only a convenience for the next run
+    say("Patching with:")
+    describe(options)
+    return [f for name, value in options.items() for f in CHOICES[name][value]]
 
 
 def run(script, *args):
@@ -208,6 +259,8 @@ def main():
     dropped = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
     say("Two's A Riot: Tying up Merlose Ends - disc patcher")
     say("=" * 50)
+    say()
+    features = choose_options(folder)
     say()
 
     if dropped:
@@ -240,8 +293,6 @@ def main():
     if src_cue == "chd":
         src_bin, src_cue = chd_to_bin(src_bin, os.path.dirname(os.path.abspath(src_bin)))
     say(f"Disc image: {label}")
-    say(f"Options (from {OPTIONS}):")
-    features = read_options(folder)
 
     # Is it Vagrant Story (USA)? (patch_image checks every byte later; this gives a clearer message)
     if os.path.getsize(src_bin) % RAW:
