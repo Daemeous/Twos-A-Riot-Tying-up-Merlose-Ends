@@ -64,6 +64,23 @@ int _calloSlot = 0; /* where she last spawned (0: not yet) */
 u_char _lateJoin;
 u_char _calloSpawning;
 
+/* A save from a version that kept the loadout at 0x400: move it, and clear the chest flags it
+ * was occupying (those chests show closed again, with their contents). */
+static void _moveOldLoadout(void)
+{
+    u_char* old = OLD_LOADOUT;
+    u_char* loadout = LOADOUT;
+    int i;
+
+    if ((old[loadoutVersion] != LOADOUT_VERSION) || (loadout[loadoutVersion] == LOADOUT_VERSION)) {
+        return;
+    }
+    for (i = 0; i < 0x20; ++i) {
+        loadout[i] = old[i];
+        old[i] = 0;
+    }
+}
+
 void vs_mod_spawnCallo(void)
 {
     vs_battle_objectData_flags position;
@@ -76,6 +93,7 @@ void vs_mod_spawnCallo(void)
     vs_main_inventoryBlade* blade;
     vs_main_inventoryShield* shield;
 
+    _moveOldLoadout();
     _lateJoin = 0;
     if (vs_battle_getStateFlag(PROGRESS_FLAG) < PROLOGUE_OVER) {
         _lateJoin = 1;
