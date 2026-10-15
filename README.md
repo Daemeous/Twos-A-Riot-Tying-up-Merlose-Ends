@@ -50,9 +50,9 @@ Please give the original projects and their contributors the credit they deserve
   stats, small HP/MP/RISK bars for her sit under Ashley's, and she catches up if she's left
   behind.
 - **Cutscenes.** She steps out for cutscenes and the prologue, and is back when they end.
-- **Optional extras** (on by default, switch off in `Merlose options.ini`): permanent stat-up
-  items always give their maximum (+4), and the bonus wheel after a boss can be chosen instead
-  of spun (**Down/Up** to pick, **Circle** to take it).
+- **Optional extras** (the patcher and builders ask whether you want them): permanent stat-up
+  items always give their maximum (+4), and the bonus wheel after a boss is chosen instead of
+  spun (**Down/Up** to pick, **Circle** to take it; with this, the wheel doesn't spin).
 
 ## Compatibility
 
@@ -77,7 +77,7 @@ Vagrant Story (USA), as a `.bin` + `.cue`.
 
 | Play it on | What you get | Download |
 | --- | --- | --- |
-| **Windows** | rood-boi, the native PC version, with Merlose | **[Windows builder](https://github.com/Daemeous/rood-boi/releases/latest)** (`rood-boi-builder-*.zip`) |
+| **Windows** | rood-boi, the native PC version, with Merlose | **[Windows builder](https://github.com/Daemeous/rood-boi/releases/latest)** (`rood-boi-native-builder-*.zip`, no WSL; or `rood-boi-builder-*.zip`, with WSL) |
 | **Linux** | rood-boi, the native PC version, with Merlose | **[Linux builder](https://github.com/Daemeous/rood-boi/releases/latest)** (`rood-boi-linux-builder-*.tar.gz`) |
 | **An emulator** (or a real PlayStation) | the PlayStation version, patched | **[Patcher](https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends/releases/latest)** (`Twos-A-Riot-Merlose-*.zip`, Windows) |
 
@@ -87,13 +87,18 @@ The builder compiles rood-boi on your PC from the source code and your disc. You
 to be unmodified (no Zenith or other patches).
 
 - **Windows:** extract the zip, put your `.bin` + `.cue` in the folder and double-click
-  **Build rood-boi.bat**. The first time, it may install WSL (Windows' built-in Linux), which
-  needs a restart. Then play with **play-callo.bat** in the new `rood-boi` folder.
+  **Build rood-boi.bat**. Then play with **play-callo.bat** in the new `rood-boi` folder.
+  There are two Windows builders:
+  - `rood-boi-native-builder-*.zip` (new): needs no WSL, no admin rights and no restart. It
+    downloads its own build tools (MSYS2, Python and Windows builds of the PlayStation
+    compilers) into its folder. The first build takes 30-60 minutes.
+  - `rood-boi-builder-*.zip`: builds in WSL (Windows' built-in Linux), which it installs the
+    first time (that needs a restart).
 - **Linux:** install Podman (or Docker), extract the archive, put your `.bin` + `.cue` in the
   folder and run `./build-rood-boi.sh`. Then play with `rood-boi/play-callo.sh`.
 
-The first build takes 20-40 minutes. Merlose and her extras are switched on or off in
-`rood-boi options.ini`. Run the builder again to update. The README in each download has the
+The builder starts by asking whether to include Merlose and her extras, and remembers your
+answers for next time. Run the builder again to update. The README in each download has the
 details.
 
 ### PlayStation version (emulators)
@@ -102,9 +107,8 @@ details.
 (Windows 10/11, nothing to install):
 
 1. Extract the zip and copy your Vagrant Story (USA) `.bin` + `.cue` into the extracted folder.
-   To leave out an extra, set it to `no` in `Merlose options.ini`.
-2. Double-click **Patch Vagrant Story.bat** and answer the questions. (If Windows says "Windows
-   protected your PC", click **More info → Run anyway**.)
+2. Double-click **Patch Vagrant Story.bat** and answer the questions, starting with which extras
+   you want. (If Windows says "Windows protected your PC", click **More info → Run anyway**.)
 3. Open the new `... + Merlose.cue` in your emulator. Your original image isn't changed.
 
 For Zenith, put its `.ppf` in the same folder and answer **Y** when asked. For the QoL mod,
@@ -131,6 +135,17 @@ The native PC version comes from the same mod source, compiled into
 
 Developed with [Claude Code](https://claude.com/claude-code).
 
+## Update (15 October)
+
+- **The patcher and builders now ask which extras you want** when they start, instead of
+  switching them on by default: with the choosable bonus wheel, the wheel after a boss doesn't
+  spin (you pick the reward), which looked like a freeze to players who didn't know it was on.
+  Your answers are remembered, and the next run asks whether to keep them.
+- **A Windows builder without WSL** (`rood-boi-native-builder-*.zip`): no WSL, admin rights or
+  restart needed.
+- **rood-boi updated** to noprompt's latest (signs drawn from the font, warp fixes, faster
+  launch, and more).
+
 ## Update (14 October)
 
 Most of the known issues are fixed. Download the latest
@@ -138,8 +153,8 @@ Most of the known issues are fixed. Download the latest
 and patch your original disc again, or run the
 [Windows/Linux builder](https://github.com/Daemeous/rood-boi/releases/latest) again to update.
 
-- **Stat-up items** no longer crash the game with Zenith. `max_stat_items` in
-  `Merlose options.ini` is now a choice: `4` (always +4), `zenith` (Zenith's best roll) or `no`.
+- **Stat-up items** no longer crash the game with Zenith. The stat-up extra is now a choice:
+  always +4, Zenith's best roll, or the game's own roll.
 - **Merlose appears where she was missing:** the Wine Cellar's first room, and on PC, rooms with
   no enemies (workshops, small rooms, the first room of Snowfly Forest).
 - **Spells** can be changed again (unlearned default spells no longer fill her list).
