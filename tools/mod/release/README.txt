@@ -113,9 +113,8 @@ CREDITS
 -------
 * rood-reverse, the Vagrant Story decompilation this mod is built on:
   ser-pounce (https://github.com/ser-pounce), who started it and has done
-  the overwhelming majority of the work, Lil' Sassy
-  (https://github.com/lil-sassy), one of its most prolific contributors,
-  and every other contributor. https://github.com/ser-pounce/rood-reverse
+  the overwhelming majority of the work, and every other contributor.
+  https://github.com/ser-pounce/rood-reverse
 * noprompt (https://github.com/noprompt): rood-boi, the native PC port,
   and rood-reverse PR #186, which the mod's decomp edition builds on.
 * Zenith: lead author the_E_y_Es_o_0, with Valendian and Rosto.
