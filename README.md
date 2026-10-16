@@ -15,8 +15,8 @@ equipment and which of Ashley's spells she may use.
 *Maybe I should've led with that...*
 
 The Windows port is based on **noprompt**'s **[rood-boi](https://github.com/noprompt/rood-boi)**,
-which builds on **ser-pounce**'s **[rood-reverse](https://github.com/ser-pounce/rood-reverse)**
-decompilation and the work of its contributors. Without them, none of this would have been
+which builds on the **[rood-reverse](https://github.com/ser-pounce/rood-reverse)** decompilation
+by **[ser-pounce](https://github.com/ser-pounce)** and **[Lil' Sassy](https://github.com/lil-sassy)** and the work of its other contributors. Without them, none of this would have been
 possible. The decompilation has opened up possibilities for Vagrant Story modding that were
 previously far beyond reach, and noprompt's Linux port was the foundation for the Windows one.
 
@@ -28,7 +28,8 @@ can start exploring what this makes possible for the future of Vagrant Story.
 
 Please give the original projects and their contributors the credit they deserve:
 
-- **[rood-reverse](https://github.com/ser-pounce/rood-reverse)**: the decompilation
+- **[rood-reverse](https://github.com/ser-pounce/rood-reverse)**: the decompilation, by ser-pounce, Lil' Sassy and its
+  other contributors
 - **[rood-boi](https://github.com/noprompt/rood-boi)**: the native ports
 
 ## Features
@@ -118,8 +119,8 @@ README in the zip covers `.chd` files and troubleshooting.
 
 ## How it's made
 
-The mod is built on **[rood-reverse](https://github.com/ser-pounce/rood-reverse)**, the
-decompilation of Vagrant Story, which turns the game's code back into readable C. Two editions
+The mod is built on **[rood-reverse](https://github.com/ser-pounce/rood-reverse)** (by ser-pounce,
+Lil' Sassy and its other contributors), the decompilation of Vagrant Story, which turns the game's code back into readable C. Two editions
 come from the same source:
 
 - **Patch edition** (the one to use): a few small patches to the original game files plus two
@@ -180,11 +181,15 @@ and patch your original disc again, or run the
 
 ## Credits
 
-- **ser-pounce** and the rood-reverse contributors, for the decompilation this is built on.
+- **[ser-pounce](https://github.com/ser-pounce)**, who started rood-reverse and has done the overwhelming majority of the work on it, and
+  **[Lil' Sassy](https://github.com/lil-sassy)**, one of its most prolific contributors: the decompilation this is built on. Thanks also
+  to every other rood-reverse contributor.
 - **noprompt**, for rood-boi, the native PC port, and for PR #186.
 - **Zenith**: lead author **the_E_y_Es_o_0**, with collaborators **Valendian** and **Rosto**.
 - **ChaoticBrave**, for the Vagrant Story Randomizer.
 - **eremtsov**, for the QoL mod.
+- The patcher zip includes the official embeddable [Python](https://www.python.org) (Python Software
+  Foundation, PSF licence).
 
 
 - Vagrant Story © Square Enix. This is a fan project, not affiliated with or endorsed by Square
@@ -198,6 +203,6 @@ If you've enjoyed this mod and would like to support me or my other projects, yo
 
 Absolutely no obligation, though, everything I make is because I'm passionate about it, and your enjoyment is already a reward in itself. Please take care of you and yours first!
 
-I want to be clear that I stood on the shoulders of giants to make this. [ser-pounce's rood-reverse](https://github.com/ser-pounce/rood-reverse) and [noprompt's rood-boi](https://github.com/noprompt/rood-boi) are the real MVPs who made this possible. If you'd like to support the people whose work made this project possible, please consider supporting them, too!
+I want to be clear that I stood on the shoulders of giants to make this. [ser-pounce and Lil' Sassy's rood-reverse](https://github.com/ser-pounce/rood-reverse) and [noprompt's rood-boi](https://github.com/noprompt/rood-boi) are the real MVPs who made this possible. If you'd like to support the people whose work made this project possible, please consider supporting them, too!
 
 [☕ Support me on Ko-fi](https://ko-fi.com/daemeous)
