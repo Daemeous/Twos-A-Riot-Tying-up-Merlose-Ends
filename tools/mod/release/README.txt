@@ -107,3 +107,20 @@ Merlose options.ini       your answers from the last run (made by the patcher)
 files\                    the patcher (Python scripts) and the mod itself
 files\python\             an official Python (python.org), so you don't
                           need to install one
+
+
+CREDITS
+-------
+* rood-reverse, the Vagrant Story decompilation this mod is built on:
+  ser-pounce (https://github.com/ser-pounce), who started it and has done
+  the overwhelming majority of the work, Lil' Sassy
+  (https://github.com/lil-sassy), one of its most prolific contributors,
+  and every other contributor. https://github.com/ser-pounce/rood-reverse
+* noprompt (https://github.com/noprompt): rood-boi, the native PC port,
+  and rood-reverse PR #186, which the mod's decomp edition builds on.
+* Zenith: lead author the_E_y_Es_o_0, with Valendian and Rosto.
+* The QoL mod: eremtsov. The Vagrant Story Randomizer: ChaoticBrave.
+* files\python is the official embeddable Python from python.org
+  (Python Software Foundation, PSF licence).
+* Vagrant Story (c) Square Enix. This is a fan project, not affiliated
+  with or endorsed by Square Enix.
