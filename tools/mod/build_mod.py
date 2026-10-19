@@ -314,11 +314,72 @@ def kit(out_dir, *args):
     print(f"kit: {len(added)} added files; written to {out_dir}")
 
 
+def difficulty(battle_path, init_path, symbols, module):
+    import subprocess
+    def syms(path):
+        result = {}
+        for line in subprocess.check_output(["mipsel-linux-gnu-nm", path], text=True).splitlines():
+            parts = line.split()
+            if len(parts) == 3:
+                result[parts[2]] = (int(parts[0], 16), parts[1])
+        return result
+    game, mod = syms(symbols), syms(module)
+    data = bytearray(open(battle_path, "rb").read())
+    for original, hook, region in [
+        ("func_80076784", "vs_diff_init", None),
+        ("func_80069DBC", "vs_diff_clear", None),
+        ("func_80069FC4", "vs_diff_save", None),
+        ("func_80086FA8", "vs_diff_restore", "func_800775C0"),
+    ]:
+        target, destination = game[original][0], mod[hook][0]
+        lo, hi = VRAM, VRAM + len(data)
+        if region:
+            lo = game[region][0]
+            hi = min(v[0] for k,v in game.items() if v[1] in ("T", "t") and v[0] > lo
+                     and not k.startswith((".L", "$", "L0")))
+        sites = []
+        for address in range(lo, hi, 4):
+            instruction = struct.unpack_from("<I", data, address - VRAM)[0]
+            if instruction >> 26 in (2,3) and (instruction & 0x3ffffff) == (target >> 2 & 0x3ffffff):
+                sites.append(address)
+                struct.pack_into("<I", data, address - VRAM,
+                                 (instruction & 0xfc000000) | (destination >> 2 & 0x3ffffff))
+        if not sites or (region and len(sites) != 1):
+            sys.exit(f"difficulty: unexpected {original} call sites: {sites}")
+        print(f"difficulty: {original} -> {hook}: {len(sites)} calls")
+    open(battle_path, "wb").write(data)
+    data = bytearray(open(init_path, "rb").read())
+    call = jal(game["vs_main_initHeap"][0])
+    sites = [i for i in range(0,len(data),4) if struct.unpack_from("<I",data,i)[0]==call]
+    if len(sites)!=1: sys.exit("difficulty: expected one heap initialisation")
+    for reg, old, new in [(4,0x8010c000,0x80110000),(5,0xf2000,0xee000)]:
+        pairs=[]
+        for pos in range(max(0,sites[0]-64),sites[0]+8,4):
+            ins=struct.unpack_from("<I",data,pos)[0]
+            if ins>>16 != (0x3c00|reg): continue
+            for lowpos in range(pos+4,sites[0]+8,4):
+                low=struct.unpack_from("<I",data,lowpos)[0]
+                op=low>>26
+                if op not in (9,13) or (low>>21&31)!=reg or (low>>16&31)!=reg: continue
+                bottom=low&65535
+                value=((ins&65535)<<16) + (bottom-65536 if op==9 and bottom&32768 else bottom)
+                if value==old: pairs.append((pos,lowpos,ins,low,op))
+        if len(pairs)!=1: sys.exit(f"difficulty: heap constant {old:#x}: {pairs}")
+        pos,lowpos,ins,low,op=pairs[0]
+        upper=((new+32768)>>16) if op==9 else (new>>16)
+        struct.pack_into("<I",data,pos,(ins&0xffff0000)|(upper&65535))
+        struct.pack_into("<I",data,lowpos,(low&0xffff0000)|(new&65535))
+    open(init_path,"wb").write(data)
+    print("difficulty: 16 KB reserved; heap end unchanged at 0x801FE000")
+
+
 def main():
     cmd, *args = sys.argv[1:]
     num = lambda s: int(s, 0)
     if cmd == "pack":
         pack(args[0], args[1], *map(num, args[2:]))
+    elif cmd == "difficulty":
+        difficulty(*args)
     elif cmd == "battle":
         battle(args[0], *map(num, args[1:]))
     elif cmd == "maxstats":

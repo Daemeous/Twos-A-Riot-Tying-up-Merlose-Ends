@@ -199,10 +199,30 @@ def saved_options(folder):
         if value is None:
             return {}
         saved[name] = value
+    for name in ("enemy_base_percent", "enemy_per_completion_percent"):
+        value = config.get("features", name, fallback="").split(";")[0].strip()
+        if not value.isdigit() or not 0 <= int(value) <= 10000:
+            return {}
+        saved[name] = str(int(value))
     return saved
 
 
+def selected_options(options):
+    features = [f for name in CHOICES for f in CHOICES[name][options[name]]]
+    return features, int(options["enemy_base_percent"]), int(options["enemy_per_completion_percent"])
+
+
+def ask_percent(label):
+    while True:
+        value = prompt(label + " (0-10000; 0 = unchanged): ").strip()
+        if value.isdigit() and 0 <= int(value) <= 10000:
+            return str(int(value))
+        say("  Please type a whole number from 0 to 10000, then press Enter.")
+
+
 def describe(options):
+    say(f"  enemy stats: +{options['enemy_base_percent']}% base, "
+        f"+{options['enemy_per_completion_percent']}% per completed game")
     stat = dict(STAT_ITEMS)[options["max_stat_items"]]
     say(f"  stat-up items: {stat}")
     say("  bonus wheel after a boss: " + ("you choose the reward (it doesn't spin)"
@@ -218,9 +238,16 @@ def choose_options(folder):
         describe(saved)
         if ask("Keep these choices? [Y/N]") == "y":
             say()
-            return [f for name, value in saved.items() for f in CHOICES[name][value]]
+            return selected_options(saved)
         say()
     options = {}
+    say("Enemy difficulty: Ashley and Merlose are excluded. Stat caps still apply.")
+    say("Each completion adds a percentage of the original stats, without compounding.")
+    say("Example: 30% base and 30% per completion gives +90% on the third playthrough.")
+    say("Limb HP keeps its original proportion of maximum HP, including at the HP cap.")
+    options["enemy_base_percent"] = ask_percent("Base enemy stat increase (%)")
+    options["enemy_per_completion_percent"] = ask_percent("Additional increase per completion (%)")
+    say()
     say("Permanent stat-up items (the ones that raise STR, INT, AGL, max HP or max MP for good)")
     say("normally give a random amount. Which do you want?")
     for i, (_, text) in enumerate(STAT_ITEMS, 1):
@@ -243,7 +270,7 @@ def choose_options(folder):
         pass  # only a convenience for the next run
     say("Patching with:")
     describe(options)
-    return [f for name, value in options.items() for f in CHOICES[name][value]]
+    return selected_options(options)
 
 
 def run(script, *args):
@@ -260,7 +287,7 @@ def main():
     say("Two's A Riot: Tying up Merlose Ends - disc patcher")
     say("=" * 50)
     say()
-    features = choose_options(folder)
+    features, base_percent, per_clear_percent = choose_options(folder)
     say()
 
     if dropped:
@@ -349,7 +376,9 @@ def main():
         ok = run("apply_ppf.py", ppf, out_bin) == 0
     if ok:
         say("Adding Merlose...")
-        ok = run("patch_image.py", KIT, out_bin, "--features=" + ",".join(features)) == 0
+        ok = run("patch_image.py", KIT, out_bin, "--features=" + ",".join(features),
+                 "--difficulty-base=" + str(base_percent),
+                 "--difficulty-per-clear=" + str(per_clear_percent)) == 0
     if not ok:
         os.remove(out_bin)
         fail("Patching failed (see the messages above), so the copy was deleted. Is this the "

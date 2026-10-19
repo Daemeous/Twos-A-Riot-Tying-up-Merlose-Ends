@@ -10,7 +10,8 @@ Optional features (the kit's "features") are all applied unless --features lists
 use (--features= for none). A feature whose bytes another mod already changed (e.g. the QoL
 mod's button swap on the bonus wheel screen) is left out, with a note, rather than failing.
 
-usage: patch_image.py <kit dir> <image.bin> [--features=a,b]   (modifies the image in place)
+usage: patch_image.py <kit dir> <image.bin> [--features=a,b]
+    [--difficulty-base=30] [--difficulty-per-clear=30]   (modifies the image in place)
 """
 
 import hashlib
@@ -112,17 +113,46 @@ def check(image, files):
     return changes, already, problems
 
 
+def difficulty_options(arguments):
+    values = [0, 0]
+    for arg in arguments:
+        for index, prefix in enumerate(("--difficulty-base=", "--difficulty-per-clear=")):
+            if arg.startswith(prefix):
+                value = arg[len(prefix):]
+                if not value.isdigit() or not 0 <= int(value) <= 10000:
+                    sys.exit(prefix[:-1] + " must be a whole percentage from 0 to 10000")
+                values[index] = int(value)
+    return values
+
+
+def configure_difficulty(name, data, enabled, base, per_clear):
+    data = bytearray(data)
+    if name.upper() == "CALLO.BIN" and enabled:
+        struct.pack_into("<I", data, 12, 0x44494646)
+    if name.upper() == "DIFF.BIN":
+        if struct.unpack_from("<I", data)[0] != 0x46464944:
+            sys.exit("invalid difficulty module header")
+        struct.pack_into("<II", data, 12, base, per_clear)
+    return bytes(data)
+
+
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--features=")]
+    base_percent, per_clear_percent = difficulty_options(sys.argv[1:])
+    args = [a for a in sys.argv[1:] if not a.startswith(("--features=", "--difficulty-base=", "--difficulty-per-clear="))]
     if len(args) != 2:
         sys.exit(__doc__)
     kit_dir, image_path = args
     kit = json.load(open(os.path.join(kit_dir, "patches.json")))
     features = kit.get("features", {})
-    wanted = list(features)
+    wanted = [f for f in features if f != "enemy_difficulty"]
     for a in sys.argv[1:]:
         if a.startswith("--features="):
             wanted = [f for f in a.split("=", 1)[1].split(",") if f]
+    if (base_percent or per_clear_percent) and "enemy_difficulty" not in wanted:
+        wanted.append("enemy_difficulty")
+    difficulty_enabled = "enemy_difficulty" in wanted
+    if difficulty_enabled and not {"CALLO.BIN", "DIFF.BIN"}.issubset({e["file"].upper() for e in kit["added"]}):
+        sys.exit("this kit does not contain the difficulty module; rebuild/update the kit")
     unknown = [f for f in wanted if f not in features]
     if unknown:
         sys.exit(f"unknown feature(s) {', '.join(unknown)}; the kit has {', '.join(features)}")
@@ -135,6 +165,9 @@ def main():
     for name in wanted:
         f_changes, f_already, f_problems = check(image, features[name])
         label = name.replace("_", " ")
+        if f_problems and name == "enemy_difficulty":
+            problems.extend("enemy difficulty: " + p for p in f_problems)
+            continue
         if f_problems:
             notes.append(f"Left out the {label}: another mod already changes that part of the "
                          f"game (e.g. the QoL mod's button swap).")
@@ -145,6 +178,7 @@ def main():
     added = []
     for entry in kit["added"]:
         data = open(os.path.join(kit_dir, entry["file"]), "rb").read()
+        data = configure_difficulty(entry["file"], data, difficulty_enabled, base_percent, per_clear_percent)
         sectors = -(-len(data) // SECTOR)
         data += bytes(sectors * SECTOR - len(data))
         present = True

@@ -24,5 +24,12 @@ int vs_mod_loadSystemDat(int sector, int bytes, void* buf)
 
     vs_main_diskLoadFile(MOD_LBA, MOD_SIZE, (void*)MOD_BASE);
     FlushCache();
+    /* Header slot 1 is unused by Merlose. The installer sets this marker only
+     * alongside the heap reservation and the difficulty gameplay hooks. */
+    if (((unsigned int*)MOD_BASE)[3] == 0x44494646) {
+        vs_main_diskLoadFile(DIFF_LBA, DIFF_SIZE, (void*)DIFF_BASE);
+        FlushCache();
+        ((void (*)(void))((unsigned int*)DIFF_BASE)[2])();
+    }
     return result;
 }

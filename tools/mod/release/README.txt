@@ -37,6 +37,19 @@ Tip: you can also drag your .cue (or .bin) onto the .bat file.
 OPTIONS
 -------
 The patcher starts by asking which extras you want:
+* Enemy difficulty: type two whole percentages from 0 to 10000.
+  The base increase applies on the first playthrough. The second increase is
+  added for every completed game: 30 base + 30 per completion gives +90% on
+  the third playthrough. Type 0 for no increase; nothing is preselected.
+  Ashley and Merlose are excluded. HP, MP, STR, INT and AGL keep their caps.
+  Each limb keeps its original proportion of maximum HP, even at the HP cap.
+  This option reserves 16 KB of game RAM only when enabled.
+  Existing memory-card saves work; returning to a room does not stack bonuses.
+  Patched saves keep enemy stats in original units, so they can also be used
+  with difficulty disabled. Injury is converted proportionally for saving;
+  small rounding differences can occur on reload, without accumulating.
+  Boot the patched disc and load a memory-card save, rather than an old
+  emulator save state (which still holds the old game code).
 * Stat-up items: what permanent stat-up items give.
     1. always +4, even with Zenith
     2. Zenith's best roll (+2, later +3), or +4 without Zenith

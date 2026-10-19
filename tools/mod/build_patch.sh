@@ -25,6 +25,10 @@ MENU_BASE=0x80109800    # callo.h MENU_MODULE
 MENU_LIMIT=0x8010C000   # the heap
 MENU_LBA=$((MOD_LBA + 8))  # callo.h MENU_MODULE_LBA
 MENU_MAGIC=0x554E4D43   # "CMNU"
+DIFF_BASE=0x8010C000
+DIFF_LIMIT=0x80110000
+DIFF_LBA=$((MOD_LBA + 16))
+DIFF_MAGIC=0x46464944  # "DIFF"
 
 rm -rf "$OUT/kit" "$OUT/original" "$OUT/patched" "$OUT"/maxstats*
 mkdir -p "$OUT/original" "$OUT/patched"
@@ -40,6 +44,13 @@ addr() { mipsel-linux-gnu-nm "$1" | awk -v s="$2" '$3 == s {print "0x" $1; exit}
 
 # 1. The mod (header with its entry point, see build_mod.py pack)
 tools/mod/link_module.sh "$MODDIR/callo.c.o" $((MOD_BASE + 0x20)) "$SYMS" "$OUT/callo.elf" "$OUT/callo.bin"
+# Difficulty lives outside Merlose's nearly-full code area. Only enabled installs
+# reserve its 16 KB; otherwise the original heap and gameplay calls are untouched.
+make -j8 SHIFTCHECK=1 "$MODDIR/difficulty.c.o"
+tools/mod/link_module.sh "$MODDIR/difficulty.c.o" $((DIFF_BASE + 0x20)) "$SYMS" "$OUT/difficulty.elf" "$OUT/difficulty.bin"
+python3 tools/mod/build_mod.py pack "$OUT/difficulty.bin" "$OUT/DIFF.BIN" \
+    $DIFF_MAGIC $DIFF_BASE $DIFF_LIMIT "$(addr "$OUT/difficulty.elf" mod_checked_end)" "$(addr "$OUT/difficulty.elf" vs_diff_start)"
+DIFF_SIZE=$(stat -c %s "$OUT/DIFF.BIN")
 ENTRY=$(addr "$OUT/callo.elf" vs_mod_spawnCallo)
 python3 tools/mod/build_mod.py pack "$OUT/callo.bin" "$OUT/CALLO.BIN" \
     $MOD_MAGIC $MOD_BASE $MOD_LIMIT "$(addr "$OUT/callo.elf" mod_checked_end)" "$ENTRY"
@@ -63,6 +74,9 @@ python3 tools/mod/build_mod.py pack "$OUT/menu.bin" "$OUT/CALLOMNU.BIN" \
     echo "#define MOD_MAGIC $MOD_MAGIC"
     echo "#define MOD_LBA   $MOD_LBA"
     echo "#define MOD_SIZE  $MOD_SIZE"
+    echo "#define DIFF_BASE $DIFF_BASE"
+    echo "#define DIFF_LBA $DIFF_LBA"
+    echo "#define DIFF_SIZE $DIFF_SIZE"
 } > "$OUT/mod_config.h"
 rm -f "$MODDIR/stub.c.o"
 make -j8 SHIFTCHECK=1 "$MODDIR/stub.c.o"
@@ -96,14 +110,22 @@ python3 tools/mod/build_mod.py menu3 "$OUT/patched/MENU3.PRG" "$(c vs_mod_itemNa
     "$(c vs_mod_equipMenu)" "$(c vs_mod_setMenuRows)" "$(c vs_mod_loadObjectData)"
 python3 tools/mod/build_mod.py menu0 "$OUT/patched/MENU0.PRG" "$(c vs_mod_magicRows)" "$(c vs_mod_magicCost)"
 
+# Difficulty is a strict optional group: incompatible hooks must fail, not silently
+# omit half of the feature. Diff against core-patched files to keep loader edits.
+mkdir -p "$OUT/difficulty"
+cp "$OUT/patched/BATTLE.PRG" "$OUT/patched/INITBTL.PRG" "$OUT/difficulty/"
+python3 tools/mod/build_mod.py difficulty "$OUT/difficulty/BATTLE.PRG" "$OUT/difficulty/INITBTL.PRG" "$SYMS" "$OUT/difficulty.elf"
+
 # 5. The kit, for tools/mod/patch_image.py
 python3 tools/mod/build_mod.py kit "$OUT/kit" \
     BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/patched/BATTLE.PRG" \
     BATTLE/INITBTL.PRG "$OUT/original/INITBTL.PRG" "$OUT/patched/INITBTL.PRG" \
     MENU/MENU3.PRG "$OUT/original/MENU3.PRG" "$OUT/patched/MENU3.PRG" \
     MENU/MENU0.PRG "$OUT/original/MENU0.PRG" "$OUT/patched/MENU0.PRG" \
-    "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN" \
+    "$MOD_LBA" "$OUT/CALLO.BIN" "$MENU_LBA" "$OUT/CALLOMNU.BIN" "$DIFF_LBA" "$OUT/DIFF.BIN" \
     @max_stat_items BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats_four/BATTLE.PRG" \
     @max_stat_items_zenith BATTLE/BATTLE.PRG "$OUT/original/BATTLE.PRG" "$OUT/maxstats_best/BATTLE.PRG" \
-    @choosable_bonus_wheel MENU/MENUF.PRG "$OUT/original/MENUF.PRG" "$OUT/patched/MENUF.PRG"
+    @choosable_bonus_wheel MENU/MENUF.PRG "$OUT/original/MENUF.PRG" "$OUT/patched/MENUF.PRG" \
+    @enemy_difficulty BATTLE/BATTLE.PRG "$OUT/patched/BATTLE.PRG" "$OUT/difficulty/BATTLE.PRG" \
+    BATTLE/INITBTL.PRG "$OUT/patched/INITBTL.PRG" "$OUT/difficulty/INITBTL.PRG"
 echo "kit: $OUT/kit"
