@@ -34,10 +34,10 @@ CALLO_PRG_SIZE := $(shell echo $$(( (283 + $(CALLO_SECTORS)) * 2048 )))
 CALLO_EXPORTS := _menuMode vs_mod_optionsRows vs_mod_itemNavigationDone vs_mod_equipMenuDone \
 	vs_mod_loadCalloObjectData vs_mod_markSpells vs_mod_spellHighlighted
 
-# The mod goes after BATTLE.PRG's data, before its zero-initialised variables (which are in the
-# file), so that its own variables are zeros in the file too.
+# Append after the game's data and BSS (both are stored in this PRG). Inserting
+# code before BSS moves hard-coded lui/ori data references across bit 15.
 $(BATTLE_CONFIG)/link_callo.ld: $(BATTLE_CONFIG)/link.d tools/make/callo.mk
-	sed 's|^\(\s*\)build/src/BATTLE/BATTLE.PRG/83A58.data.s.o(.data);|&\n\1$(CALLO_OBJ)(.text .rodata .rodata.* .data .sdata .bss .sbss COMMON);|' \
+	sed 's|^\(\s*\)BATTLE_PRG_BSS_SIZE = .*;|&\n\1$(CALLO_OBJ)(.text .rodata .rodata.* .data .sdata .bss .sbss COMMON);|' \
 		$(BATTLE_CONFIG)/link.ld > $@
 	grep -q 'callo.c.o' $@
 
