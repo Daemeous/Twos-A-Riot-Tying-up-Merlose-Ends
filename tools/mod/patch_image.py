@@ -10,7 +10,11 @@ Optional features (the kit's "features") are all applied unless --features lists
 use (--features= for none). A feature whose bytes another mod already changed (e.g. the QoL
 mod's button swap on the bonus wheel screen) is left out, with a note, rather than failing.
 
-usage: patch_image.py <kit dir> <image.bin> [--features=a,b]
+--no-merlose: only the features, without Merlose. None of her hooks go in; the features that
+call code in CALLO.BIN (the stat-up items, enemy difficulty) bring just its loader in
+INITBTL.PRG and the file itself, which then only serves them.
+
+usage: patch_image.py <kit dir> <image.bin> [--features=a,b] [--no-merlose]
     [--difficulty-base=30] [--difficulty-per-clear=30]   (modifies the image in place)
 """
 
@@ -25,6 +29,8 @@ from apply_ppf import fix_mode2_form1  # noqa: E402
 
 RAW = 2352
 DATA = 24          # MODE2 form 1 user data offset
+# Features that call into CALLO.BIN (loaded by the loader in INITBTL.PRG)
+MODULE_FEATURES = {"max_stat_items", "max_stat_items_zenith", "enemy_difficulty"}
 SECTOR = 2048
 SUBMODE_DATA = 0x08
 SUBMODE_LAST = 0x89  # data + end of record + end of file
@@ -138,7 +144,9 @@ def configure_difficulty(name, data, enabled, base, per_clear):
 
 def main():
     base_percent, per_clear_percent = difficulty_options(sys.argv[1:])
-    args = [a for a in sys.argv[1:] if not a.startswith(("--features=", "--difficulty-base=", "--difficulty-per-clear="))]
+    no_merlose = "--no-merlose" in sys.argv[1:]
+    args = [a for a in sys.argv[1:] if a != "--no-merlose"
+            and not a.startswith(("--features=", "--difficulty-base=", "--difficulty-per-clear="))]
     if len(args) != 2:
         sys.exit(__doc__)
     kit_dir, image_path = args
@@ -156,11 +164,18 @@ def main():
     unknown = [f for f in wanted if f not in features]
     if unknown:
         sys.exit(f"unknown feature(s) {', '.join(unknown)}; the kit has {', '.join(features)}")
+    core, added_files = kit["files"], kit["added"]
+    if no_merlose:
+        module = any(f in MODULE_FEATURES for f in wanted)
+        core = {path: runs for path, runs in core.items() if module and path.upper() == "BATTLE/INITBTL.PRG"}
+        added_files = [e for e in added_files if module and e["file"].upper() == "CALLO.BIN"
+                       or difficulty_enabled and e["file"].upper() == "DIFF.BIN"]
+        print("Without Merlose: only the features.")
     image = Image(image_path)
     touched = set()
 
     # Check everything first
-    changes, already, problems = check(image, kit["files"])
+    changes, already, problems = check(image, core)
     notes = []
     for name in wanted:
         f_changes, f_already, f_problems = check(image, features[name])
@@ -176,7 +191,7 @@ def main():
         changes += f_changes
         already += f_already
     added = []
-    for entry in kit["added"]:
+    for entry in added_files:
         data = open(os.path.join(kit_dir, entry["file"]), "rb").read()
         data = configure_difficulty(entry["file"], data, difficulty_enabled, base_percent, per_clear_percent)
         sectors = -(-len(data) // SECTOR)

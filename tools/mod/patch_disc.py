@@ -1,5 +1,6 @@
 """Guided patcher for players: finds a Vagrant Story (USA) disc image in a folder, copies it,
-optionally adds a Zenith .ppf found in the same folder, then applies the Merlose patch kit.
+optionally adds a Zenith .ppf found in the same folder, then applies the Merlose patch kit
+(or, if the player doesn't want Merlose, only the extras they chose: patch_image --no-merlose).
 
 The release zip (tools/mod/make_release.py) runs this from "Patch Vagrant Story.bat" with the
 embedded Python. The original image is never modified.
@@ -20,6 +21,7 @@ from patch_image import Image  # noqa: E402
 KIT = os.path.join(HERE, "kit")
 OPTIONS = "Merlose options.ini"
 SUFFIX = " + Merlose"
+SUFFIX_EXTRAS = " + extras"   # the extras without Merlose
 RAW = 2352
 RAW_EXTS = (".bin", ".img", ".iso")
 CHDMAN_URL = "https://www.mamedev.org/release.html"
@@ -175,8 +177,8 @@ STAT_ITEMS = [  # (value, what the player reads)
     ("no", "the game's own random roll (unchanged)"),
 ]
 SAVED_HEADER = """; Two's A Riot - your choices
-; The patcher asks which extras you want when it starts and remembers your answers here.
-; Merlose herself is always included.
+; The patcher asks whether you want Merlose and which extras you want when it starts, and
+; remembers your answers here. merlose = no gives only the extras, without her.
 """
 
 
@@ -191,6 +193,11 @@ def saved_options(folder):
     except configparser.Error:
         return {}
     saved = {}
+    # Files from before Merlose was optional have no "merlose" line: she was always included
+    value = config.get("features", "merlose", fallback="yes").split(";")[0].strip().lower()
+    if value not in YES + NO:
+        return {}
+    saved["merlose"] = "yes" if value in YES else "no"
     for name, values in CHOICES.items():
         value = config.get("features", name, fallback="").split(";")[0].strip().lower()
         if value not in values:
@@ -209,7 +216,7 @@ def saved_options(folder):
 
 def selected_options(options):
     features = [f for name in CHOICES for f in CHOICES[name][options[name]]]
-    return features, int(options["enemy_base_percent"]), int(options["enemy_per_completion_percent"])
+    return options["merlose"] == "yes", features, int(options["enemy_base_percent"]), int(options["enemy_per_completion_percent"])
 
 
 def ask_percent(label):
@@ -221,6 +228,7 @@ def ask_percent(label):
 
 
 def describe(options):
+    say("  Merlose: " + ("yes" if options["merlose"] == "yes" else "no (only the extras below)"))
     say(f"  enemy stats: +{options['enemy_base_percent']}% base, "
         f"+{options['enemy_per_completion_percent']}% per completed game")
     stat = dict(STAT_ITEMS)[options["max_stat_items"]]
@@ -241,6 +249,10 @@ def choose_options(folder):
             return selected_options(saved)
         say()
     options = {}
+    say("Merlose: Callo Merlose joins Ashley as an AI companion. Answer N to leave her out")
+    say("and get only the extras that follow (the game is otherwise unchanged).")
+    options["merlose"] = "yes" if ask("Include Merlose? [Y/N]") == "y" else "no"
+    say()
     say("Enemy difficulty: Ashley and Merlose are excluded. Stat caps still apply.")
     say("Each completion adds a percentage of the original stats, without compounding.")
     say("Example: 30% base and 30% per completion gives +90% on the third playthrough.")
@@ -287,7 +299,10 @@ def main():
     say("Two's A Riot: Tying up Merlose Ends - disc patcher")
     say("=" * 50)
     say()
-    features, base_percent, per_clear_percent = choose_options(folder)
+    merlose, features, base_percent, per_clear_percent = choose_options(folder)
+    if not merlose and not features and not base_percent and not per_clear_percent:
+        fail("Nothing to add: you left out Merlose and every extra. Run this again and choose "
+             "at least one.")
     say()
 
     if dropped:
@@ -334,8 +349,9 @@ def main():
 
     folder_out = os.path.dirname(os.path.abspath(src_bin))
     stem = os.path.splitext(os.path.basename(src_cue or src_bin))[0]
-    out_bin = os.path.join(folder_out, stem + SUFFIX + ".bin")
-    out_cue = os.path.join(folder_out, stem + SUFFIX + ".cue")
+    suffix = SUFFIX if merlose else SUFFIX_EXTRAS
+    out_bin = os.path.join(folder_out, stem + suffix + ".bin")
+    out_cue = os.path.join(folder_out, stem + suffix + ".cue")
 
     # Zenith (or another PPF) from the same folder, applied before the mod
     ppfs = sorted(p for p in os.listdir(folder) if p.lower().endswith(".ppf"))
@@ -375,10 +391,11 @@ def main():
         say(f"Applying {os.path.basename(ppf)}...")
         ok = run("apply_ppf.py", ppf, out_bin) == 0
     if ok:
-        say("Adding Merlose...")
+        say("Adding Merlose..." if merlose else "Adding the extras (without Merlose)...")
         ok = run("patch_image.py", KIT, out_bin, "--features=" + ",".join(features),
                  "--difficulty-base=" + str(base_percent),
-                 "--difficulty-per-clear=" + str(per_clear_percent)) == 0
+                 "--difficulty-per-clear=" + str(per_clear_percent),
+                 *([] if merlose else ["--no-merlose"])) == 0
     if not ok:
         os.remove(out_bin)
         fail("Patching failed (see the messages above), so the copy was deleted. Is this the "

@@ -2,6 +2,8 @@ Two's A Riot: Tying up Merlose Ends  -  version @VERSION@
 =========================================================
 
 A Vagrant Story mod: Callo Merlose joins Ashley as an AI companion.
+Its extras (stat-up items, bonus wheel, enemy difficulty) can also be
+used on their own, without Merlose.
 Project page: https://github.com/Daemeous/Twos-A-Riot-Tying-up-Merlose-Ends
 
 
@@ -20,16 +22,16 @@ HOW TO PATCH
    (Don't run anything from inside the zip window.)
 2. Copy your Vagrant Story .bin and .cue into the extracted folder,
    next to "Patch Vagrant Story.bat".
-3. Double-click "Patch Vagrant Story.bat". It starts by asking which
-   extras you want (see OPTIONS below).
+3. Double-click "Patch Vagrant Story.bat". It starts by asking whether
+   you want Merlose and which extras you want (see OPTIONS below).
    If Windows says "Windows protected your PC", click "More info",
    then "Run anyway". (It's a plain text file; you can open it in
    Notepad to see what it does.)
 4. Answer the questions in the black window. It makes a NEW copy named
-   "... + Merlose.bin" / "... + Merlose.cue". Your original disc image
-   is never changed. You need about 750 MB of free space.
-5. Open the new "+ Merlose.cue" file in your emulator (DuckStation,
-   ePSXe, ...).
+   "... + Merlose.bin" / "... + Merlose.cue" ("... + extras" if you
+   left Merlose out). Your original disc image is never changed. You
+   need about 750 MB of free space.
+5. Open the new .cue file in your emulator (DuckStation, ePSXe, ...).
 
 Tip: you can also drag your .cue (or .bin) onto the .bat file.
 
@@ -37,6 +39,8 @@ Tip: you can also drag your .cue (or .bin) onto the .bat file.
 OPTIONS
 -------
 The patcher starts by asking which extras you want:
+* Merlose: answer N to leave her out and get only the extras below,
+  on an otherwise unchanged game.
 * Enemy difficulty: type two whole percentages from 0 to 10000.
   The base increase applies on the first playthrough. The second increase is
   added for every completed game: 30 base + 30 per completion gives +90% on
@@ -57,7 +61,7 @@ The patcher starts by asking which extras you want:
 * Bonus wheel: with this, the bonus wheel after a boss does NOT spin:
   you pick the reward yourself (Down/Up, then Circle). If you're not
   sure, answer N.
-Merlose herself is always included. Your answers are remembered (in
+Your answers are remembered (in
 "Merlose options.ini"): the next run shows them and asks whether to
 keep them. To change them, answer N there and run the .bat again on
 your ORIGINAL disc image.
